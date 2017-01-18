@@ -1,0 +1,7 @@
+{
+	"baseUrl": "assets/",
+	"resource_list":
+					[
+							{ "name": "spritesheet", "url": "spritesheet.json" }
+					]
+}
