@@ -18,7 +18,7 @@
 },
 "back_out-1.png":
 {
-	"frame": {"x":1410,"y":43,"w":25,"h":40},
+	"frame": {"x":1416,"y":1,"w":25,"h":40},
 	"rotated": false,
 	"trimmed": true,
 	"spriteSourceSize": {"x":4,"y":5,"w":25,"h":40},
@@ -66,10 +66,10 @@
 },
 "idle-1.png":
 {
-	"frame": {"x":1416,"y":1,"w":25,"h":40},
+	"frame": {"x":1377,"y":86,"w":26,"h":40},
 	"rotated": false,
 	"trimmed": true,
-	"spriteSourceSize": {"x":0,"y":5,"w":25,"h":40},
+	"spriteSourceSize": {"x":3,"y":5,"w":26,"h":40},
 	"sourceSize": {"w":32,"h":48}
 },
 "jab-1.png":
@@ -202,7 +202,7 @@
 },
 "police-1.png":
 {
-	"frame": {"x":1377,"y":86,"w":26,"h":40},
+	"frame": {"x":1405,"y":86,"w":26,"h":40},
 	"rotated": false,
 	"trimmed": true,
 	"spriteSourceSize": {"x":3,"y":5,"w":26,"h":40},
@@ -210,7 +210,7 @@
 },
 "police-2.png":
 {
-	"frame": {"x":1405,"y":86,"w":26,"h":40},
+	"frame": {"x":1410,"y":43,"w":26,"h":40},
 	"rotated": false,
 	"trimmed": true,
 	"spriteSourceSize": {"x":2,"y":5,"w":26,"h":40},
@@ -258,7 +258,7 @@
 },
 "uppercut-2.png":
 {
-	"frame": {"x":1462,"y":79,"w":31,"h":38},
+	"frame": {"x":1463,"y":79,"w":31,"h":38},
 	"rotated": false,
 	"trimmed": true,
 	"spriteSourceSize": {"x":1,"y":7,"w":31,"h":38},
@@ -266,7 +266,7 @@
 },
 "win-1.png":
 {
-	"frame": {"x":1437,"y":43,"w":23,"h":39},
+	"frame": {"x":1438,"y":43,"w":23,"h":39},
 	"rotated": false,
 	"trimmed": true,
 	"spriteSourceSize": {"x":5,"y":6,"w":23,"h":39},
@@ -287,6 +287,6 @@
 	"format": "RGBA8888",
 	"size": {"w":1512,"h":162},
 	"scale": "1",
-	"smartupdate": "$TexturePacker:SmartUpdate:486f0c87bfdb7ce0daa8cc828a400184:9682c0d89557aa0a2b359931c79daf1a:729adc6043343cfda41c447ce8f464d6$"
+	"smartupdate": "$TexturePacker:SmartUpdate:f4a8d66f9fe31fe6a5a5c86d3c758d02:2021620e7a96ac058523517ccc0d1473:729adc6043343cfda41c447ce8f464d6$"
 }
 }

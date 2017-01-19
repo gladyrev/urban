@@ -231,13 +231,15 @@ var engine_projects_UserInput = function() {
 	this.MOVE_RIGHT = 39;
 	this.MOVE_LEFT = 37;
 	this.key_map = new haxe_ds_IntMap();
-	window.addEventListener("keyup",$bind(this,this.onKeyUp));
-	window.addEventListener("keydown",$bind(this,this.onKeyDown));
 };
 engine_projects_UserInput.__name__ = ["engine","projects","UserInput"];
 engine_projects_UserInput.__interfaces__ = [engine_projects_IUserInput,engine_projects_IService];
 engine_projects_UserInput.prototype = {
-	onKeyDown: function(e,keyCode) {
+	init: function() {
+		window.addEventListener("keyup",$bind(this,this.onKeyUp));
+		window.addEventListener("keydown",$bind(this,this.onKeyDown));
+	}
+	,onKeyDown: function(e,keyCode) {
 		if(keyCode == null) keyCode = -1;
 		this.key_map.h[keyCode > 0?keyCode:e.keyCode] = true;
 	}
@@ -247,8 +249,6 @@ engine_projects_UserInput.prototype = {
 	}
 	,isDown: function(key_code) {
 		if(this.key_map.h.hasOwnProperty(key_code)) return this.key_map.h[key_code]; else return false;
-	}
-	,init: function() {
 	}
 	,__class__: engine_projects_UserInput
 };
@@ -425,6 +425,8 @@ engine_projects_AnimationList.prototype = $extend(PIXI.Container.prototype,{
 	,__class__: engine_projects_AnimationList
 });
 var engine_projects_TouchButton = function(key_code) {
+	this.touchEndMethod = null;
+	this.touchStartMethod = null;
 	this.key_code = 0;
 	PIXI.Graphics.call(this);
 	this.key_code = key_code;
@@ -442,21 +444,19 @@ engine_projects_TouchButton.prototype = $extend(PIXI.Graphics.prototype,{
 		this.interactive = true;
 		var user_input;
 		user_input = js_Boot.__cast(game.locator.getService("UserInput") , engine_projects_IUserInput);
-		this.on("touchstart",function() {
+		this.touchStartMethod = function() {
 			var event_params = { bubbles : true, keyCode : _g.key_code, code : "ArrowRight"};
 			var keyboard_event = new KeyboardEvent("keydown",event_params);
 			user_input.onKeyDown(keyboard_event,_g.key_code);
-		});
-		this.on("touchend",function() {
+		};
+		this.touchEndMethod = function() {
 			var event_params1 = { bubbles : true, keyCode : _g.key_code, code : "ArrowRight"};
 			var keyboard_event1 = new KeyboardEvent("keyup",event_params1);
 			user_input.onKeyUp(keyboard_event1,_g.key_code);
-		});
-		this.on("touchendoutside",function() {
-			var event_params2 = { bubbles : true, keyCode : _g.key_code, code : "ArrowRight"};
-			var keyboard_event2 = new KeyboardEvent("keyup",event_params2);
-			user_input.onKeyUp(keyboard_event2,_g.key_code);
-		});
+		};
+		this.on("touchstart",this.touchStartMethod);
+		this.on("touchend",this.touchEndMethod);
+		this.on("touchendoutside",this.touchEndMethod);
 	}
 	,get_depth: function() {
 		return 1.0;
@@ -466,7 +466,7 @@ engine_projects_TouchButton.prototype = $extend(PIXI.Graphics.prototype,{
 var engine_projects_Urban = function() {
 	this.renderMethod = null;
 	this.updateMethod = null;
-	this.move_speed = 30.0;
+	this.move_speed = 25.0;
 	this.move_direction = 0;
 	PIXI.Graphics.call(this);
 	this.character_animation = new engine_projects_AnimationList();
@@ -486,20 +486,44 @@ engine_projects_Urban.prototype = $extend(PIXI.Graphics.prototype,{
 		this.character_animation.push("idle",new engine_projects_Animation());
 		this.character_animation.push("move_left",new engine_projects_Animation());
 		this.character_animation.push("move_right",new engine_projects_Animation());
-		var idle_animation = this.character_animation.getAnimation("idle");
-		idle_animation.pushFrame(asssets.getTexture("idle-1.png"));
-		var move_left_animation = this.character_animation.getAnimation("move_left");
-		var _g1 = 0;
-		while(_g1 < 4) {
-			var i = _g1++;
-			move_left_animation.pushFrame(asssets.getTexture("move_right-" + (4 - i) + ".png"));
-		}
-		var move_right_animation = this.character_animation.getAnimation("move_right");
-		var _g2 = 1;
-		while(_g2 < 5) {
-			var i1 = _g2++;
-			move_right_animation.pushFrame(asssets.getTexture("move_right-" + i1 + ".png"));
-		}
+		this.character_animation.push("jab",new engine_projects_Animation());
+		this.character_animation.push("uppercut",new engine_projects_Animation());
+		this.character_animation.push("cover_up",new engine_projects_Animation());
+		this.character_animation.push("cover_down",new engine_projects_Animation());
+		this.character_animation.push("skip_easy_jab",new engine_projects_Animation());
+		this.character_animation.push("skip_easy_uppercut",new engine_projects_Animation());
+		this.character_animation.push("skip_strong_jab",new engine_projects_Animation());
+		this.character_animation.push("skip_strong_uppercut",new engine_projects_Animation());
+		this.character_animation.push("back_out",new engine_projects_Animation());
+		this.character_animation.push("knockout",new engine_projects_Animation());
+		this.character_animation.push("knockdown",new engine_projects_Animation());
+		this.character_animation.push("arrest",new engine_projects_Animation());
+		this.character_animation.push("police",new engine_projects_Animation());
+		this.character_animation.push("win",new engine_projects_Animation());
+		var init_animation = function(animation_name,texture_name,frames_number,reverse) {
+			if(reverse == null) reverse = false;
+			if(animation_name == null) animation_name = texture_name; else animation_name = animation_name;
+			var animation = _g.character_animation.getAnimation(animation_name);
+			if(reverse) {
+				var _g2 = 1;
+				var _g1 = frames_number + 1;
+				while(_g2 < _g1) {
+					var i = _g2++;
+					animation.pushFrame(asssets.getTexture("" + texture_name + "-" + (frames_number + 1 - i) + ".png"));
+				}
+			} else {
+				var _g21 = 1;
+				var _g11 = frames_number + 1;
+				while(_g21 < _g11) {
+					var i1 = _g21++;
+					animation.pushFrame(asssets.getTexture("" + texture_name + "-" + i1 + ".png"));
+				}
+			}
+		};
+		init_animation(null,"idle",1);
+		init_animation("move_left","move_right",4,true);
+		init_animation(null,"move_right",4);
+		init_animation(null,"jab",2);
 		var dispatcher;
 		dispatcher = js_Boot.__cast(game.locator.getService("EventDispatcher") , engine_projects_IEventDispatcher);
 		this.updateMethod = function() {
@@ -515,12 +539,13 @@ engine_projects_Urban.prototype = $extend(PIXI.Graphics.prototype,{
 		return 1;
 	}
 	,update: function(game,delta_time) {
-		this.handleUserInput(game,delta_time);
+		this.handleUserInput(game);
 		this.character_animation.update(delta_time);
+		this.x += this.move_direction * this.move_speed * delta_time;
 	}
 	,render: function(game) {
 	}
-	,handleUserInput: function(game,delta_time) {
+	,handleUserInput: function(game) {
 		var audio;
 		audio = js_Boot.__cast(game.locator.getService("AudioSystem") , engine_projects_ISoundEngine);
 		var user_input;
@@ -540,7 +565,6 @@ engine_projects_Urban.prototype = $extend(PIXI.Graphics.prototype,{
 			this.character_animation.setState("idle");
 			this.move_direction = 0;
 		}
-		this.x += this.move_direction * this.move_speed * delta_time;
 	}
 	,__class__: engine_projects_Urban
 });
@@ -630,6 +654,7 @@ engine_projects_BrokenBones.main = function() {
 			var game = new engine_projects_BrokenBones();
 			game.init(game_resources);
 			game.resize();
+			game.resume();
 		});
 	});
 };
@@ -651,7 +676,6 @@ engine_projects_BrokenBones.prototype = {
 		this.scene_manager.pushScene("Intro",new engine_projects_GameScene());
 		this.scene_manager.setScene("Intro");
 		this.scene_manager.getScene().init(this);
-		this.resume();
 	}
 	,resize: function() {
 		var actual_width = window.innerWidth;
