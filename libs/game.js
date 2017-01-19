@@ -463,6 +463,23 @@ engine_projects_TouchButton.prototype = $extend(PIXI.Graphics.prototype,{
 	}
 	,__class__: engine_projects_TouchButton
 });
+var engine_projects_Background = function() {
+	PIXI.Sprite.call(this);
+};
+engine_projects_Background.__name__ = ["engine","projects","Background"];
+engine_projects_Background.__interfaces__ = [engine_projects_IGameObject];
+engine_projects_Background.__super__ = PIXI.Sprite;
+engine_projects_Background.prototype = $extend(PIXI.Sprite.prototype,{
+	init: function(game) {
+		var asssets;
+		asssets = js_Boot.__cast(game.locator.getService("ResourceManager") , engine_projects_IResourceManager);
+		this.addChild(new PIXI.Sprite(asssets.getTexture("location-3.png")));
+	}
+	,get_depth: function() {
+		return 3;
+	}
+	,__class__: engine_projects_Background
+});
 var engine_projects_Urban = function() {
 	this.renderMethod = null;
 	this.updateMethod = null;
@@ -471,7 +488,7 @@ var engine_projects_Urban = function() {
 	PIXI.Graphics.call(this);
 	this.character_animation = new engine_projects_AnimationList();
 	this.x = 100;
-	this.y = 110;
+	this.y = 96;
 	this.move_direction = 0;
 };
 engine_projects_Urban.__name__ = ["engine","projects","Urban"];
@@ -500,7 +517,7 @@ engine_projects_Urban.prototype = $extend(PIXI.Graphics.prototype,{
 		this.character_animation.push("arrest",new engine_projects_Animation());
 		this.character_animation.push("police",new engine_projects_Animation());
 		this.character_animation.push("win",new engine_projects_Animation());
-		var init_animation = function(animation_name,texture_name,frames_number,reverse) {
+		var initializeAnimation = function(animation_name,texture_name,frames_number,reverse) {
 			if(reverse == null) reverse = false;
 			if(animation_name == null) animation_name = texture_name; else animation_name = animation_name;
 			var animation = _g.character_animation.getAnimation(animation_name);
@@ -520,10 +537,10 @@ engine_projects_Urban.prototype = $extend(PIXI.Graphics.prototype,{
 				}
 			}
 		};
-		init_animation(null,"idle",1);
-		init_animation("move_left","move_right",4,true);
-		init_animation(null,"move_right",4);
-		init_animation(null,"jab",2);
+		initializeAnimation(null,"idle",1);
+		initializeAnimation("move_left","move_right",4,true);
+		initializeAnimation(null,"move_right",4);
+		initializeAnimation(null,"jab",2);
 		var dispatcher;
 		dispatcher = js_Boot.__cast(game.locator.getService("EventDispatcher") , engine_projects_IEventDispatcher);
 		this.updateMethod = function() {
@@ -581,6 +598,7 @@ engine_projects_GameScene.prototype = $extend(PIXI.Container.prototype,{
 		var left_touch_button = new engine_projects_TouchButton(user_input.MOVE_LEFT);
 		var right_touch_button = new engine_projects_TouchButton(user_input.MOVE_RIGHT);
 		right_touch_button.x += 240;
+		this.addChild(new engine_projects_Background());
 		this.addChild(left_touch_button);
 		this.addChild(right_touch_button);
 		this.addChild(new engine_projects_Urban());
