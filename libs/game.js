@@ -5,6 +5,15 @@ function $extend(from, fields) {
 	if( fields.toString !== Object.prototype.toString ) proto.toString = fields.toString;
 	return proto;
 }
+var HxOverrides = function() { };
+HxOverrides.__name__ = ["HxOverrides"];
+HxOverrides.iter = function(a) {
+	return { cur : 0, arr : a, hasNext : function() {
+		return this.cur < this.arr.length;
+	}, next : function() {
+		return this.arr[this.cur++];
+	}};
+};
 Math.__name__ = ["Math"];
 var Reflect = function() { };
 Reflect.__name__ = ["Reflect"];
@@ -31,8 +40,8 @@ Std.__name__ = ["Std"];
 Std.string = function(s) {
 	return js_Boot.__string_rec(s,"");
 };
-Std.random = function(x) {
-	if(x <= 0) return 0; else return Math.floor(Math.random() * x);
+Std["int"] = function(x) {
+	return x | 0;
 };
 var Type = function() { };
 Type.__name__ = ["Type"];
@@ -41,64 +50,14 @@ Type.getClassName = function(c) {
 	if(a == null) return null;
 	return a.join(".");
 };
-var engine_geom_Color = function(_r,_g,_b,_a) {
-	if(_a == null) _a = 255;
-	if(_b == null) _b = 0;
-	if(_g == null) _g = 0;
-	if(_r == null) _r = 0;
-	this.set_r(_r);
-	this.set_g(_g);
-	this.set_b(_b);
-	this.set_a(_a);
-};
-engine_geom_Color.__name__ = ["engine","geom","Color"];
-engine_geom_Color.prototype = {
-	_argb: function(a,r,g,b) {
-		if(b == null) b = 0;
-		if(g == null) g = 0;
-		if(r == null) r = 0;
-		if(a == null) a = 255;
-		return (a & 255) << 24 | (r & 255) << 16 | (g & 255) << 8 | b & 255;
-	}
-	,get_r: function() {
-		return (255.0 * this._r | 0) & 255;
-	}
-	,set_r: function(r) {
-		this._r = r / 255.0;
-		return r;
-	}
-	,get_g: function() {
-		return (255.0 * this._g | 0) & 255;
-	}
-	,set_g: function(g) {
-		this._g = g / 255.0;
-		return g;
-	}
-	,get_b: function() {
-		return (255.0 * this._b | 0) & 255;
-	}
-	,set_b: function(b) {
-		this._b = b / 255.0;
-		return b;
-	}
-	,get_a: function() {
-		return (255.0 * this._a | 0) & 255;
-	}
-	,set_a: function(b) {
-		this._a = this.get_a() / 255.0;
-		return this.get_a();
-	}
-	,get_rgb: function() {
-		return this._argb(255,this.get_r(),this.get_g(),this.get_b());
-	}
-	,__class__: engine_geom_Color
-};
 var engine_projects_TickManager = function() {
 	this.update_list = [];
 	this.delta_time = 0.0;
-	this.prev_timestamp = engine_utils_Utils.getTickCount();
-	this.current_timestamp = 0.0;
-	this.loop();
+	this.prev_frame_time = 0.0;
+	this.lag = 0.01;
+	this.MS_PER_UPDATE = 0.01;
+	this.MAX_FRAME_TIME = 0.3;
+	this.loop(0.0);
 };
 engine_projects_TickManager.__name__ = ["engine","projects","TickManager"];
 engine_projects_TickManager.prototype = {
@@ -108,18 +67,23 @@ engine_projects_TickManager.prototype = {
 	,getLastFrameTime: function() {
 		return this.delta_time;
 	}
-	,loop: function() {
-		window.requestAnimationFrame($bind(this,this.loop));
-		this.current_timestamp = engine_utils_Utils.getTickCount();
-		this.delta_time = this.current_timestamp - this.prev_timestamp;
-		this.prev_timestamp = this.current_timestamp;
-		var _g = 0;
-		var _g1 = this.update_list;
-		while(_g < _g1.length) {
-			var callback = _g1[_g];
-			++_g;
-			callback(this.delta_time);
+	,loop: function(timestamp) {
+		var frame_time = timestamp / 1000.0;
+		this.delta_time = frame_time - this.prev_frame_time;
+		if(this.delta_time < this.MAX_FRAME_TIME) this.delta_time = this.delta_time; else this.delta_time = this.MAX_FRAME_TIME;
+		this.lag += this.delta_time;
+		while(this.lag >= this.MS_PER_UPDATE) {
+			var _g = 0;
+			var _g1 = this.update_list;
+			while(_g < _g1.length) {
+				var callback = _g1[_g];
+				++_g;
+				callback(this.MS_PER_UPDATE);
+			}
+			this.lag -= this.MS_PER_UPDATE;
 		}
+		this.prev_frame_time = frame_time;
+		window.requestAnimationFrame($bind(this,this.loop));
 	}
 	,__class__: engine_projects_TickManager
 };
@@ -138,6 +102,13 @@ engine_projects_ServiceLocator.prototype = {
 	}
 	,getService: function(name) {
 		return this.services.get(name);
+	}
+	,destroyAll: function() {
+		var $it0 = this.services.iterator();
+		while( $it0.hasNext() ) {
+			var service = $it0.next();
+			service.destroy();
+		}
 	}
 	,__class__: engine_projects_ServiceLocator
 };
@@ -178,9 +149,12 @@ var engine_projects_IUpdateEvent = function() { };
 engine_projects_IUpdateEvent.__name__ = ["engine","projects","IUpdateEvent"];
 var engine_projects_IRenderEvent = function() { };
 engine_projects_IRenderEvent.__name__ = ["engine","projects","IRenderEvent"];
+var engine_projects_IDepthSorting = function() { };
+engine_projects_IDepthSorting.__name__ = ["engine","projects","IDepthSorting"];
 var engine_projects_Events = function() {
 	this.UPDATE = engine_projects_IUpdateEvent;
 	this.RENDER = engine_projects_IRenderEvent;
+	this.DEPTH_SORTING = engine_projects_IDepthSorting;
 };
 engine_projects_Events.__name__ = ["engine","projects","Events"];
 engine_projects_Events.prototype = {
@@ -205,6 +179,9 @@ engine_projects_EventDispatcher.__interfaces__ = [engine_projects_IEventDispatch
 engine_projects_EventDispatcher.prototype = {
 	init: function() {
 	}
+	,destroy: function() {
+		this.removeAll();
+	}
 	,addListener: function(type,handler) {
 		var class_name = Type.getClassName(type);
 		if(!this.listeners.exists(class_name)) {
@@ -212,6 +189,13 @@ engine_projects_EventDispatcher.prototype = {
 			this.listeners.set(class_name,value);
 		}
 		this.listeners.get(class_name).push(handler);
+	}
+	,removeAll: function() {
+		var $it0 = this.listeners.keys();
+		while( $it0.hasNext() ) {
+			var class_name = $it0.next();
+			this.listeners.remove(class_name);
+		}
 	}
 	,emit: function(event) {
 		var class_name = Type.getClassName(event);
@@ -239,6 +223,10 @@ engine_projects_UserInput.prototype = {
 		window.addEventListener("keyup",$bind(this,this.onKeyUp));
 		window.addEventListener("keydown",$bind(this,this.onKeyDown));
 	}
+	,destroy: function() {
+		window.removeEventListener("keyup",$bind(this,this.onKeyUp));
+		window.removeEventListener("keydown",$bind(this,this.onKeyDown));
+	}
 	,onKeyDown: function(e,keyCode) {
 		if(keyCode == null) keyCode = -1;
 		this.key_map.h[keyCode > 0?keyCode:e.keyCode] = true;
@@ -265,15 +253,13 @@ engine_projects_GraphicsEngine.__interfaces__ = [engine_projects_IGraphicEngine,
 engine_projects_GraphicsEngine.prototype = {
 	init: function() {
 	}
+	,destroy: function() {
+	}
 	,resize: function(width,height) {
 		this.internal_renderer.view.style.width = width + "px";
 		this.internal_renderer.view.style.height = height + "px";
 	}
-	,zAxisSorting: function(a,b) {
-		if((js_Boot.__cast(a , engine_projects_ISortableObject)).get_depth() > (js_Boot.__cast(b , engine_projects_ISortableObject)).get_depth()) return -1; else return 1;
-	}
 	,render: function(scene) {
-		(js_Boot.__cast(scene , PIXI.Container)).children.sort($bind(this,this.zAxisSorting));
 		this.internal_renderer.render(js_Boot.__cast(scene , PIXI.DisplayObject));
 	}
 	,__class__: engine_projects_GraphicsEngine
@@ -284,6 +270,8 @@ engine_projects_AudioEngine.__name__ = ["engine","projects","AudioEngine"];
 engine_projects_AudioEngine.__interfaces__ = [engine_projects_ISoundEngine,engine_projects_IService];
 engine_projects_AudioEngine.prototype = {
 	init: function() {
+	}
+	,destroy: function() {
 	}
 	,__class__: engine_projects_AudioEngine
 };
@@ -314,6 +302,8 @@ engine_projects_ResourceManager.prototype = {
 		if(texture == null) return PIXI.Texture.EMPTY; else return texture;
 	}
 	,init: function() {
+	}
+	,destroy: function() {
 	}
 	,__class__: engine_projects_ResourceManager
 };
@@ -347,13 +337,12 @@ engine_projects_ResourceLoader.prototype = {
 	,__class__: engine_projects_ResourceLoader
 };
 var engine_projects_Animation = function(speed) {
-	if(speed == null) speed = 10.0;
+	if(speed == null) speed = 8.0;
 	this.updateMethod = null;
 	PIXI.Sprite.call(this);
 	this.cacheAsBitmap = false;
 	this.play_speed = speed;
 	this.frames_array = [];
-	this.is_played = false;
 	this.reset();
 };
 engine_projects_Animation.__name__ = ["engine","projects","Animation"];
@@ -424,16 +413,19 @@ engine_projects_AnimationList.prototype = $extend(PIXI.Container.prototype,{
 	}
 	,__class__: engine_projects_AnimationList
 });
-var engine_projects_TouchButton = function(key_code) {
+var engine_projects_TouchButton = function(key_code,x,y,w,h) {
+	if(h == null) h = 0.0;
+	if(w == null) w = 0.0;
+	if(y == null) y = 0.0;
+	if(x == null) x = 0.0;
 	this.touchEndMethod = null;
 	this.touchStartMethod = null;
 	this.key_code = 0;
 	PIXI.Graphics.call(this);
+	this.x = x;
+	this.y = y;
 	this.key_code = key_code;
-	this.beginFill(engine_utils_Utils.getRandomColor().get_rgb());
-	this.lineStyle(1,0);
-	this.drawRect(0,0,15,160);
-	this.endFill();
+	this.hitArea = new PIXI.Rectangle(0,0,w,h);
 };
 engine_projects_TouchButton.__name__ = ["engine","projects","TouchButton"];
 engine_projects_TouchButton.__interfaces__ = [engine_projects_IGameObject];
@@ -463,27 +455,120 @@ engine_projects_TouchButton.prototype = $extend(PIXI.Graphics.prototype,{
 	}
 	,__class__: engine_projects_TouchButton
 });
-var engine_projects_Background = function() {
+var engine_projects_ScrollingBackground = function() {
+	this.updateMethod = null;
+	this.scroll_speed = 15.0;
+	this.scroll_direction = 0;
 	PIXI.Sprite.call(this);
 };
-engine_projects_Background.__name__ = ["engine","projects","Background"];
-engine_projects_Background.__interfaces__ = [engine_projects_IGameObject];
-engine_projects_Background.__super__ = PIXI.Sprite;
-engine_projects_Background.prototype = $extend(PIXI.Sprite.prototype,{
+engine_projects_ScrollingBackground.__name__ = ["engine","projects","ScrollingBackground"];
+engine_projects_ScrollingBackground.__interfaces__ = [engine_projects_IGameObject];
+engine_projects_ScrollingBackground.__super__ = PIXI.Sprite;
+engine_projects_ScrollingBackground.prototype = $extend(PIXI.Sprite.prototype,{
 	init: function(game) {
+		var _g = this;
 		var asssets;
 		asssets = js_Boot.__cast(game.locator.getService("ResourceManager") , engine_projects_IResourceManager);
-		this.addChild(new PIXI.Sprite(asssets.getTexture("location-3.png")));
+		this.background = new PIXI.extras.TilingSprite(asssets.getTexture("street_map.png"),256,160);
+		this.addChild(this.background);
+		var dispatcher;
+		dispatcher = js_Boot.__cast(game.locator.getService("EventDispatcher") , engine_projects_IEventDispatcher);
+		this.updateMethod = function() {
+			_g.handleUserInput(game);
+			var delta_time = engine_projects_TickManager.instance.getLastFrameTime();
+			_g.background.tilePosition.x += _g.scroll_direction * _g.scroll_speed * delta_time;
+			if(_g.background.tilePosition.x > 0) _g.background.tilePosition.x = 0;
+			if(_g.background.tilePosition.x < -1024) _g.background.tilePosition.x = -1024;
+		};
+		dispatcher.addListener(dispatcher.events.UPDATE,this.updateMethod);
 	}
 	,get_depth: function() {
 		return 3;
 	}
-	,__class__: engine_projects_Background
+	,handleUserInput: function(game) {
+		var user_input;
+		user_input = js_Boot.__cast(game.locator.getService("UserInput") , engine_projects_IUserInput);
+		var move_left = user_input.isDown(user_input.MOVE_LEFT);
+		var move_right = user_input.isDown(user_input.MOVE_RIGHT);
+		var state_was_changed = move_left || move_right;
+		if(move_left) this.scroll_direction = 1;
+		if(move_right) this.scroll_direction = -1;
+		if(!state_was_changed) this.scroll_direction = 0;
+	}
+	,__class__: engine_projects_ScrollingBackground
+});
+var engine_projects_FPSMeter = function() {
+	this.updateMethod = null;
+	PIXI.Sprite.call(this);
+};
+engine_projects_FPSMeter.__name__ = ["engine","projects","FPSMeter"];
+engine_projects_FPSMeter.__interfaces__ = [engine_projects_IGameObject];
+engine_projects_FPSMeter.__super__ = PIXI.Sprite;
+engine_projects_FPSMeter.prototype = $extend(PIXI.Sprite.prototype,{
+	init: function(game) {
+		var _g = this;
+		var style_font = "3 Arial";
+		var style_fill = "red";
+		var style_align = "left";
+		this.text_field = new PIXI.Text("FPS: 0 \n Minimal",{ font : "30 Verdana", fill : "red", align : "left"});
+		this.text_field.x = this.text_field.y = 3;
+		this.addChild(this.text_field);
+		var dispatcher;
+		dispatcher = js_Boot.__cast(game.locator.getService("EventDispatcher") , engine_projects_IEventDispatcher);
+		this.updateMethod = function() {
+			_g.text_field.text = "FPS: " + Std["int"](1.0 / engine_projects_TickManager.instance.getLastFrameTime());
+		};
+		dispatcher.addListener(dispatcher.events.UPDATE,this.updateMethod);
+	}
+	,get_depth: function() {
+		return 3;
+	}
+	,__class__: engine_projects_FPSMeter
+});
+var engine_projects_PoliceCar = function() {
+	this.updateMethod = null;
+	this.move_speed = 40;
+	PIXI.Sprite.call(this);
+	this.animation = new engine_projects_Animation();
+};
+engine_projects_PoliceCar.__name__ = ["engine","projects","PoliceCar"];
+engine_projects_PoliceCar.__interfaces__ = [engine_projects_IGameObject];
+engine_projects_PoliceCar.__super__ = PIXI.Sprite;
+engine_projects_PoliceCar.prototype = $extend(PIXI.Sprite.prototype,{
+	init: function(game) {
+		var _g = this;
+		this.y = 136;
+		this.addChild(this.animation);
+		var asssets;
+		asssets = js_Boot.__cast(game.locator.getService("ResourceManager") , engine_projects_IResourceManager);
+		this.animation.pushFrame(asssets.getTexture("police_car-1.png"));
+		this.animation.pushFrame(asssets.getTexture("police_car-2.png"));
+		var dispatcher;
+		dispatcher = js_Boot.__cast(game.locator.getService("EventDispatcher") , engine_projects_IEventDispatcher);
+		this.updateMethod = function() {
+			var dt = engine_projects_TickManager.instance.getLastFrameTime();
+			_g.animation.update(dt);
+			_g.x -= _g.move_speed * dt;
+			if(_g.x < -300) _g.x = 255;
+		};
+		dispatcher.addListener(dispatcher.events.UPDATE,this.updateMethod);
+		dispatcher.addListener(dispatcher.events.DEPTH_SORTING,$bind(this,this.depthSorting));
+	}
+	,get_depth: function() {
+		return 3;
+	}
+	,zAxisSorting: function(a,b) {
+		if((js_Boot.__cast(a , engine_projects_ISortableObject)).get_depth() > (js_Boot.__cast(b , engine_projects_ISortableObject)).get_depth()) return -1; else return 1;
+	}
+	,depthSorting: function() {
+		(js_Boot.__cast(this , PIXI.Container)).children.sort($bind(this,this.zAxisSorting));
+	}
+	,__class__: engine_projects_PoliceCar
 });
 var engine_projects_Urban = function() {
 	this.renderMethod = null;
 	this.updateMethod = null;
-	this.move_speed = 25.0;
+	this.move_speed = 0.0;
 	this.move_direction = 0;
 	PIXI.Graphics.call(this);
 	this.character_animation = new engine_projects_AnimationList();
@@ -593,16 +678,14 @@ engine_projects_GameScene.__interfaces__ = [engine_projects_IScene];
 engine_projects_GameScene.__super__ = PIXI.Container;
 engine_projects_GameScene.prototype = $extend(PIXI.Container.prototype,{
 	init: function(game) {
+		this.addChild(new engine_projects_ScrollingBackground());
+		this.addChild(new engine_projects_Urban());
+		this.addChild(new engine_projects_FPSMeter());
+		this.addChild(new engine_projects_PoliceCar());
 		var user_input;
 		user_input = js_Boot.__cast(game.locator.getService("UserInput") , engine_projects_IUserInput);
-		var left_touch_button = new engine_projects_TouchButton(user_input.MOVE_LEFT);
-		var right_touch_button = new engine_projects_TouchButton(user_input.MOVE_RIGHT);
-		right_touch_button.x += 240;
-		this.addChild(new engine_projects_Background());
-		this.addChild(left_touch_button);
-		this.addChild(right_touch_button);
-		this.addChild(new engine_projects_Urban());
-		this.dispatcher = js_Boot.__cast(game.locator.getService("EventDispatcher") , engine_projects_IEventDispatcher);
+		this.addChild(new engine_projects_TouchButton(user_input.MOVE_LEFT,0.0,0.0,128,160));
+		this.addChild(new engine_projects_TouchButton(user_input.MOVE_RIGHT,128,0.0,128,160));
 		var _g = 0;
 		var _g1 = this.children;
 		while(_g < _g1.length) {
@@ -610,6 +693,18 @@ engine_projects_GameScene.prototype = $extend(PIXI.Container.prototype,{
 			++_g;
 			(js_Boot.__cast(entity , engine_projects_IGameObject)).init(game);
 		}
+		this.dispatcher = js_Boot.__cast(game.locator.getService("EventDispatcher") , engine_projects_IEventDispatcher);
+	}
+	,destruct: function(game) {
+		var _g = 0;
+		var _g1 = this.children;
+		while(_g < _g1.length) {
+			var entity = _g1[_g];
+			++_g;
+			(js_Boot.__cast(entity , engine_projects_IScene)).destruct(game);
+			this.removeChild(entity);
+		}
+		this.dispatcher = null;
 	}
 	,update: function(game) {
 		this.dispatcher.emit(this.dispatcher.events.UPDATE);
@@ -637,20 +732,24 @@ engine_projects_SceneManager.prototype = {
 	,pushScene: function(name,scene) {
 		this.scene_list.set(name,scene);
 	}
+	,destroyScene: function(game,scene_name) {
+		this.getScene(scene_name).destruct(game);
+	}
 	,__class__: engine_projects_SceneManager
 };
-var engine_projects_BrokenBones = function(width,height) {
-	if(height == null) height = 160.0;
-	if(width == null) width = 256.0;
+var engine_projects_UrbanChampion = function(width,height) {
+	if(height == null) height = 320.0;
+	if(width == null) width = 512.0;
 	this.window_width = width;
 	this.window_height = height;
 	this.scene_manager = new engine_projects_SceneManager();
 	this.locator = new engine_projects_ServiceLocator();
-	window.onresize = $bind(this,this.resize);
+	window.addEventListener("resize",$bind(this,this.resize),false);
+	window.addEventListener("onbeforeunload",$bind(this,this.destroy),false);
 };
-engine_projects_BrokenBones.__name__ = ["engine","projects","BrokenBones"];
-engine_projects_BrokenBones.__interfaces__ = [engine_projects_IGame];
-engine_projects_BrokenBones.main = function() {
+engine_projects_UrbanChampion.__name__ = ["engine","projects","UrbanChampion"];
+engine_projects_UrbanChampion.__interfaces__ = [engine_projects_IGame];
+engine_projects_UrbanChampion.main = function() {
 	var custom_loader = null;
 	var preloader = new engine_projects_ResourceLoader();
 	preloader.reset();
@@ -669,14 +768,14 @@ engine_projects_BrokenBones.main = function() {
 			preloader.add(item.name,item.url);
 		}
 		preloader.load(function(game_resources) {
-			var game = new engine_projects_BrokenBones();
+			var game = new engine_projects_UrbanChampion();
 			game.init(game_resources);
 			game.resize();
 			game.resume();
 		});
 	});
 };
-engine_projects_BrokenBones.prototype = {
+engine_projects_UrbanChampion.prototype = {
 	init: function(_resources) {
 		this.locator.register("EventDispatcher",new engine_projects_EventDispatcher());
 		this.locator.register("AudioSystem",new engine_projects_AudioEngine());
@@ -695,6 +794,10 @@ engine_projects_BrokenBones.prototype = {
 		this.scene_manager.setScene("Intro");
 		this.scene_manager.getScene().init(this);
 	}
+	,destroy: function() {
+		this.scene_manager.destroyScene(this);
+		this.locator.destroyAll();
+	}
 	,resize: function() {
 		var actual_width = window.innerWidth;
 		var actual_height = window.innerHeight;
@@ -708,18 +811,12 @@ engine_projects_BrokenBones.prototype = {
 	,update: function(dt) {
 		this.scene_manager.update(this);
 	}
-	,__class__: engine_projects_BrokenBones
+	,__class__: engine_projects_UrbanChampion
 };
 var engine_utils_Utils = function() { };
 engine_utils_Utils.__name__ = ["engine","utils","Utils"];
 engine_utils_Utils.log = function(message) {
 	window.console.log(message);
-};
-engine_utils_Utils.getTickCount = function() {
-	return new Date().getTime() / 1000.0;
-};
-engine_utils_Utils.getRandomColor = function() {
-	return new engine_geom_Color(Std.random(255),Std.random(255),Std.random(255));
 };
 var haxe_IMap = function() { };
 haxe_IMap.__name__ = ["haxe","IMap"];
@@ -730,6 +827,22 @@ haxe_ds_IntMap.__name__ = ["haxe","ds","IntMap"];
 haxe_ds_IntMap.__interfaces__ = [haxe_IMap];
 haxe_ds_IntMap.prototype = {
 	__class__: haxe_ds_IntMap
+};
+var haxe_ds__$StringMap_StringMapIterator = function(map,keys) {
+	this.map = map;
+	this.keys = keys;
+	this.index = 0;
+	this.count = keys.length;
+};
+haxe_ds__$StringMap_StringMapIterator.__name__ = ["haxe","ds","_StringMap","StringMapIterator"];
+haxe_ds__$StringMap_StringMapIterator.prototype = {
+	hasNext: function() {
+		return this.index < this.count;
+	}
+	,next: function() {
+		return this.map.get(this.keys[this.index++]);
+	}
+	,__class__: haxe_ds__$StringMap_StringMapIterator
 };
 var haxe_ds_StringMap = function() {
 	this.h = { };
@@ -758,6 +871,37 @@ haxe_ds_StringMap.prototype = {
 	,existsReserved: function(key) {
 		if(this.rh == null) return false;
 		return this.rh.hasOwnProperty("$" + key);
+	}
+	,remove: function(key) {
+		if(__map_reserved[key] != null) {
+			key = "$" + key;
+			if(this.rh == null || !this.rh.hasOwnProperty(key)) return false;
+			delete(this.rh[key]);
+			return true;
+		} else {
+			if(!this.h.hasOwnProperty(key)) return false;
+			delete(this.h[key]);
+			return true;
+		}
+	}
+	,keys: function() {
+		var _this = this.arrayKeys();
+		return HxOverrides.iter(_this);
+	}
+	,arrayKeys: function() {
+		var out = [];
+		for( var key in this.h ) {
+		if(this.h.hasOwnProperty(key)) out.push(key);
+		}
+		if(this.rh != null) {
+			for( var key in this.rh ) {
+			if(key.charCodeAt(0) == 36) out.push(key.substr(1));
+			}
+		}
+		return out;
+	}
+	,iterator: function() {
+		return new haxe_ds__$StringMap_StringMapIterator(this,this.arrayKeys());
 	}
 	,__class__: haxe_ds_StringMap
 };
@@ -914,8 +1058,6 @@ function $bind(o,m) { if( m == null ) return null; if( m.__id__ == null ) m.__id
 String.prototype.__class__ = String;
 String.__name__ = ["String"];
 Array.__name__ = ["Array"];
-Date.prototype.__class__ = Date;
-Date.__name__ = ["Date"];
 var Int = { __name__ : ["Int"]};
 var Dynamic = { __name__ : ["Dynamic"]};
 var Float = Number;
@@ -927,5 +1069,5 @@ var Enum = { };
 var __map_reserved = {}
 engine_projects_TickManager.instance = new engine_projects_TickManager();
 js_Boot.__toStr = {}.toString;
-engine_projects_BrokenBones.main();
+engine_projects_UrbanChampion.main();
 })(typeof console != "undefined" ? console : {log:function(){}}, typeof window != "undefined" ? window : typeof global != "undefined" ? global : typeof self != "undefined" ? self : this);
