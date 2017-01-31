@@ -2,6 +2,7 @@
 	"baseUrl": "assets/",
 	"resource_list":
 					[
-							{ "name": "spritesheet", "url": "spritesheet.json" }
+							{ "name": "spritesheet", "url": "spritesheet.json" },
+							{ "name": "BlissProBold", "url": "fonts/BlissProBold.fnt" }
 					]
 }
