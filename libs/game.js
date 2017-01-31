@@ -827,7 +827,7 @@ engine_projects_UrbanChampion.prototype = {
 		var actual_width = window.innerWidth;
 		var actual_height = window.innerHeight;
 		var ratio_scale = Math.min(actual_width / this.window_width,actual_height / this.window_height);
-		ratio_scale *= 0.8;
+		ratio_scale *= 0.9;
 		(js_Boot.__cast(this.locator.getService("GraphicEngine") , engine_projects_IGraphicEngine)).resize(this.window_width * ratio_scale,this.window_height * ratio_scale);
 	}
 	,resume: function() {
