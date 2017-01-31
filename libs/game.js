@@ -264,6 +264,7 @@ engine_projects_GraphicsEngine.prototype = {
 		options.antialias = false;
 		options.resolution = window.devicePixelRatio;
 		this.internal_renderer = PIXI.autoDetectRenderer(this.scr_width,this.scr_height,options);
+		this.internal_renderer.view.id = "canvas";
 		window.document.body.appendChild(this.internal_renderer.view);
 	}
 	,destroy: function() {
@@ -446,6 +447,7 @@ var engine_projects_TouchButton = function(key_code,x,y,w,h) {
 	this.y = y;
 	this.key_code = key_code;
 	this.hitArea = new PIXI.Rectangle(0,0,w,h);
+	this.redrawButton();
 };
 engine_projects_TouchButton.__name__ = true;
 engine_projects_TouchButton.__interfaces__ = [engine_projects_IGameObject];
@@ -457,11 +459,13 @@ engine_projects_TouchButton.prototype = $extend(PIXI.Graphics.prototype,{
 		var user_input;
 		user_input = js_Boot.__cast(game.locator.getService("UserInput") , engine_projects_IUserInput);
 		this.touchStartMethod = function() {
+			_g.redrawButton(-65536);
 			var event_params = { bubbles : true, keyCode : _g.key_code, code : "ArrowRight"};
 			var keyboard_event = new KeyboardEvent("keydown",event_params);
 			user_input.onKeyDown(keyboard_event,_g.key_code);
 		};
 		this.touchEndMethod = function() {
+			_g.redrawButton();
 			var event_params1 = { bubbles : true, keyCode : _g.key_code, code : "ArrowRight"};
 			var keyboard_event1 = new KeyboardEvent("keyup",event_params1);
 			user_input.onKeyUp(keyboard_event1,_g.key_code);
@@ -469,6 +473,14 @@ engine_projects_TouchButton.prototype = $extend(PIXI.Graphics.prototype,{
 		this.on("touchstart",this.touchStartMethod);
 		this.on("touchend",this.touchEndMethod);
 		this.on("touchendoutside",this.touchEndMethod);
+	}
+	,redrawButton: function(color) {
+		if(color == null) color = -256;
+		this.clear();
+		this.beginFill(color);
+		this.lineStyle(1,0);
+		this.drawRect(0,0,96,96);
+		this.endFill();
 	}
 	,get_depth: function() {
 		return 1.0;
@@ -673,9 +685,13 @@ engine_projects_Urban.prototype = $extend(PIXI.Graphics.prototype,{
 	}
 	,__class__: engine_projects_Urban
 });
-var engine_projects_GameScene = function() {
+var engine_projects_GameScene = function(x,y) {
+	if(y == null) y = 10;
+	if(x == null) x = 128;
 	this.game = null;
 	PIXI.Container.call(this);
+	this.x = x;
+	this.y = y;
 };
 engine_projects_GameScene.__name__ = true;
 engine_projects_GameScene.__interfaces__ = [engine_projects_IScene];
@@ -689,8 +705,8 @@ engine_projects_GameScene.prototype = $extend(PIXI.Container.prototype,{
 		this.addChild(new engine_projects_PoliceCar());
 		var user_input;
 		user_input = js_Boot.__cast(game.locator.getService("UserInput") , engine_projects_IUserInput);
-		this.addChild(new engine_projects_TouchButton(user_input.MOVE_LEFT,0.0,0.0,128,160));
-		this.addChild(new engine_projects_TouchButton(user_input.MOVE_RIGHT,128,0.0,128,160));
+		this.addChild(new engine_projects_TouchButton(user_input.MOVE_LEFT,-120.0,200.0,128,160));
+		this.addChild(new engine_projects_TouchButton(user_input.MOVE_RIGHT,280,200.0,128,160));
 		var _g = 0;
 		var _g1 = this.children;
 		while(_g < _g1.length) {
@@ -815,10 +831,7 @@ engine_projects_UrbanChampion.prototype = {
 		(js_Boot.__cast(this.locator.getService("GraphicEngine") , engine_projects_IGraphicEngine)).resize(this.window_width * ratio_scale,this.window_height * ratio_scale);
 	}
 	,resume: function() {
-		engine_projects_TickManager.instance.pushBack($bind(this,this.update));
-	}
-	,update: function(dt) {
-		this.scene_manager.update(dt);
+		engine_projects_TickManager.instance.pushBack(($_=this.scene_manager,$bind($_,$_.update)));
 	}
 	,__class__: engine_projects_UrbanChampion
 };
