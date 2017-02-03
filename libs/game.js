@@ -778,6 +778,7 @@ engine_projects_VirtualJoystick.prototype = $extend(PIXI.Container.prototype,{
 		this.on("touchstart",$bind(this,this.touchStartEventHandler));
 		this.on("touchend",$bind(this,this.touchEndEventHandler));
 		this.on("touchendoutside",$bind(this,this.touchEndEventHandler));
+		this.on("touchmove",$bind(this,this.touchMoveEventHandler));
 		this.on("mousemove",$bind(this,this.touchMoveEventHandler));
 		this.on("mousedown",$bind(this,this.touchStartEventHandler));
 		this.on("mouseup",$bind(this,this.touchEndEventHandler));
