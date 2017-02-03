@@ -447,7 +447,7 @@ var engine_projects_TouchButton = function(key_code,x,y,w,h) {
 	this.y = y;
 	this.key_code = key_code;
 	this.hitArea = new PIXI.Rectangle(0,0,w,h);
-	this.redrawButton();
+	this.redrawButton(-256);
 };
 engine_projects_TouchButton.__name__ = true;
 engine_projects_TouchButton.__interfaces__ = [engine_projects_IGameObject];
@@ -465,7 +465,7 @@ engine_projects_TouchButton.prototype = $extend(PIXI.Graphics.prototype,{
 			user_input.onKeyDown(keyboard_event,_g.key_code);
 		};
 		this.touchEndMethod = function() {
-			_g.redrawButton();
+			_g.redrawButton(-256);
 			var event_params1 = { bubbles : true, keyCode : _g.key_code, code : "ArrowRight"};
 			var keyboard_event1 = new KeyboardEvent("keyup",event_params1);
 			user_input.onKeyUp(keyboard_event1,_g.key_code);
@@ -475,7 +475,6 @@ engine_projects_TouchButton.prototype = $extend(PIXI.Graphics.prototype,{
 		this.on("touchendoutside",this.touchEndMethod);
 	}
 	,redrawButton: function(color) {
-		if(color == null) color = -256;
 		this.clear();
 		this.beginFill(color);
 		this.lineStyle(1,0);
@@ -489,9 +488,11 @@ engine_projects_TouchButton.prototype = $extend(PIXI.Graphics.prototype,{
 });
 var engine_projects_ScrollingBackground = function() {
 	this.game = null;
-	this.scroll_speed = 15.0;
+	this.x_position = 0.0;
+	this.scroll_speed = 10.0;
 	this.scroll_direction = 0;
 	PIXI.Sprite.call(this);
+	this.object_list = [];
 };
 engine_projects_ScrollingBackground.__name__ = true;
 engine_projects_ScrollingBackground.__interfaces__ = [engine_projects_IUpdateEventListener,engine_projects_IGameObject];
@@ -501,17 +502,31 @@ engine_projects_ScrollingBackground.prototype = $extend(PIXI.Sprite.prototype,{
 		this.game = game;
 		var asssets;
 		asssets = js_Boot.__cast(game.locator.getService("ResourceManager") , engine_projects_IResourceManager);
-		this.background = new PIXI.extras.TilingSprite(asssets.getTexture("street_map.png"),256,160);
-		this.addChild(this.background);
+		var _g = 0;
+		var _g1 = ["street_background","street_buildings"];
+		while(_g < _g1.length) {
+			var item = _g1[_g];
+			++_g;
+			var sprite = new PIXI.extras.TilingSprite(asssets.getTexture("" + item + ".png"),256,160);
+			this.object_list.push(sprite);
+			this.addChild(sprite);
+		}
 		var dispatcher;
 		dispatcher = js_Boot.__cast(game.locator.getService("EventDispatcher") , engine_projects_IEventDispatcher);
 		dispatcher.addListener(engine_projects_Events.UPDATE,this);
 	}
 	,update: function(dt) {
 		this.handleUserInput(this.game);
-		this.background.tilePosition.x += this.scroll_direction * this.scroll_speed * dt;
-		if(this.background.tilePosition.x > 0) this.background.tilePosition.x = 0;
-		if(this.background.tilePosition.x < -1024) this.background.tilePosition.x = -1024;
+		var counter = 0;
+		var _g = 0;
+		var _g1 = this.object_list;
+		while(_g < _g1.length) {
+			var object = _g1[_g];
+			++_g;
+			counter += 1;
+			this.x_position += this.scroll_direction * this.scroll_speed * dt;
+			object.tilePosition.x = Math.floor(this.x_position);
+		}
 	}
 	,get_depth: function() {
 		return 3;
@@ -536,7 +551,8 @@ engine_projects_FPSMeter.__interfaces__ = [engine_projects_IUpdateEventListener,
 engine_projects_FPSMeter.__super__ = PIXI.Sprite;
 engine_projects_FPSMeter.prototype = $extend(PIXI.Sprite.prototype,{
 	init: function(game) {
-		this.text_field = new PIXI.extras.BitmapText("0",{ font : "12px BlissProBold", align : "left", tint : 16711680});
+		var text_style = { font : "14px BlissProBold", align : "left", tint : 16711680};
+		this.text_field = new PIXI.extras.BitmapText("0",text_style);
 		this.text_field.x = this.text_field.y = 3;
 		this.addChild(this.text_field);
 		var dispatcher;
@@ -551,7 +567,25 @@ engine_projects_FPSMeter.prototype = $extend(PIXI.Sprite.prototype,{
 	}
 	,__class__: engine_projects_FPSMeter
 });
+var engine_projects_GameScreenMask = function() {
+	PIXI.Graphics.call(this);
+	this.beginFill();
+	this.drawRect(0,0,256,244);
+	this.endFill();
+};
+engine_projects_GameScreenMask.__name__ = true;
+engine_projects_GameScreenMask.__interfaces__ = [engine_projects_IGameObject];
+engine_projects_GameScreenMask.__super__ = PIXI.Graphics;
+engine_projects_GameScreenMask.prototype = $extend(PIXI.Graphics.prototype,{
+	init: function(game) {
+	}
+	,get_depth: function() {
+		return 1;
+	}
+	,__class__: engine_projects_GameScreenMask
+});
 var engine_projects_PoliceCar = function() {
+	this.x_position = 0.0;
 	this.move_speed = 40;
 	PIXI.Sprite.call(this);
 	this.animation = new engine_projects_Animation();
@@ -574,8 +608,9 @@ engine_projects_PoliceCar.prototype = $extend(PIXI.Sprite.prototype,{
 	}
 	,update: function(dt) {
 		this.animation.update(dt);
-		this.x -= this.move_speed * dt;
-		if(this.x < -300) this.x = 255;
+		this.x_position -= this.move_speed * dt;
+		this.x = Math.floor(this.x_position);
+		if(this.x < -300) this.x_position = 255;
 	}
 	,get_depth: function() {
 		return 3;
@@ -590,13 +625,13 @@ engine_projects_PoliceCar.prototype = $extend(PIXI.Sprite.prototype,{
 });
 var engine_projects_Urban = function() {
 	this.game = null;
+	this.x_position = 0.0;
 	this.move_speed = 0.0;
 	this.move_direction = 0;
 	PIXI.Graphics.call(this);
 	this.character_animation = new engine_projects_AnimationList();
 	this.x = 100;
 	this.y = 96;
-	this.move_direction = 0;
 };
 engine_projects_Urban.__name__ = true;
 engine_projects_Urban.__interfaces__ = [engine_projects_IUpdateEventListener,engine_projects_IGameObject];
@@ -660,7 +695,8 @@ engine_projects_Urban.prototype = $extend(PIXI.Graphics.prototype,{
 	,update: function(dt) {
 		this.handleUserInput(this.game);
 		this.character_animation.update(dt);
-		this.x += this.move_direction * this.move_speed * dt;
+		this.x_position += this.move_direction * this.move_speed * dt;
+		this.x += Math.floor(this.x_position);
 	}
 	,handleUserInput: function(game) {
 		var audio;
@@ -685,13 +721,101 @@ engine_projects_Urban.prototype = $extend(PIXI.Graphics.prototype,{
 	}
 	,__class__: engine_projects_Urban
 });
-var engine_projects_GameScene = function(x,y) {
+var engine_projects_GameScreen = function(x,y) {
 	if(y == null) y = 10;
 	if(x == null) x = 128;
-	this.game = null;
 	PIXI.Container.call(this);
 	this.x = x;
 	this.y = y;
+};
+engine_projects_GameScreen.__name__ = true;
+engine_projects_GameScreen.__interfaces__ = [engine_projects_IGameObject];
+engine_projects_GameScreen.__super__ = PIXI.Container;
+engine_projects_GameScreen.prototype = $extend(PIXI.Container.prototype,{
+	init: function(game) {
+		this.addChild(new engine_projects_ScrollingBackground());
+		this.addChild(new engine_projects_Urban());
+		this.addChild(new engine_projects_FPSMeter());
+		this.addChild(new engine_projects_PoliceCar());
+		var _g = 0;
+		var _g1 = this.children;
+		while(_g < _g1.length) {
+			var entity = _g1[_g];
+			++_g;
+			(js_Boot.__cast(entity , engine_projects_IGameObject)).init(game);
+		}
+		var mask = new engine_projects_GameScreenMask();
+		this.mask = mask;
+		this.addChild(js_Boot.__cast(mask , PIXI.Graphics));
+	}
+	,get_depth: function() {
+		return 1;
+	}
+	,__class__: engine_projects_GameScreen
+});
+var engine_projects_VirtualJoystick = function(x,y,w,h) {
+	if(h == null) h = 180;
+	if(w == null) w = 512;
+	if(y == null) y = 0.0;
+	if(x == null) x = 0.0;
+	this.is_pressed = false;
+	PIXI.Container.call(this);
+	this.x = x;
+	this.y = y;
+	this.border = new PIXI.Graphics();
+	this.stick = new PIXI.Graphics();
+	this.addChild(this.border);
+	this.addChild(this.stick);
+	this.hitArea = new PIXI.Rectangle(x,y,w,h);
+};
+engine_projects_VirtualJoystick.__name__ = true;
+engine_projects_VirtualJoystick.__interfaces__ = [engine_projects_IGameObject];
+engine_projects_VirtualJoystick.__super__ = PIXI.Container;
+engine_projects_VirtualJoystick.prototype = $extend(PIXI.Container.prototype,{
+	init: function(game) {
+		this.interactive = true;
+		this.buttonMode = true;
+		this.on("touchstart",$bind(this,this.touchStartEventHandler));
+		this.on("touchend",$bind(this,this.touchEndEventHandler));
+		this.on("touchendoutside",$bind(this,this.touchEndEventHandler));
+		this.on("mousemove",$bind(this,this.touchMoveEventHandler));
+		this.on("mousedown",$bind(this,this.touchStartEventHandler));
+		this.on("mouseup",$bind(this,this.touchEndEventHandler));
+	}
+	,touchStartEventHandler: function(e) {
+		this.is_pressed = true;
+		var position = e.data.getLocalPosition(this.parent);
+		this.drawObject(this.border,position.x,position.y,30,-65536);
+		this.drawObject(this.stick,position.x,position.y,10,-16711936);
+	}
+	,touchEndEventHandler: function(e) {
+		this.is_pressed = false;
+		this.clearObject(this.border);
+		this.clearObject(this.stick);
+	}
+	,touchMoveEventHandler: function(e) {
+		if(this.is_pressed) {
+			var position = e.data.getLocalPosition(this.parent);
+			this.drawObject(this.stick,position.x,position.y,10,-16711936);
+		}
+	}
+	,clearObject: function(object) {
+		object.clear();
+	}
+	,drawObject: function(object,x,y,radius,color) {
+		object.clear();
+		object.beginFill(color);
+		object.drawCircle(x,y,radius);
+		object.endFill();
+	}
+	,get_depth: function() {
+		return 1;
+	}
+	,__class__: engine_projects_VirtualJoystick
+});
+var engine_projects_GameScene = function() {
+	this.game = null;
+	PIXI.Container.call(this);
 };
 engine_projects_GameScene.__name__ = true;
 engine_projects_GameScene.__interfaces__ = [engine_projects_IScene];
@@ -699,14 +823,14 @@ engine_projects_GameScene.__super__ = PIXI.Container;
 engine_projects_GameScene.prototype = $extend(PIXI.Container.prototype,{
 	init: function(game) {
 		this.game = game;
-		this.addChild(new engine_projects_ScrollingBackground());
-		this.addChild(new engine_projects_Urban());
-		this.addChild(new engine_projects_FPSMeter());
-		this.addChild(new engine_projects_PoliceCar());
+		this.addChild(new engine_projects_GameScreen());
 		var user_input;
 		user_input = js_Boot.__cast(game.locator.getService("UserInput") , engine_projects_IUserInput);
-		this.addChild(new engine_projects_TouchButton(user_input.MOVE_LEFT,-120.0,200.0,128,160));
-		this.addChild(new engine_projects_TouchButton(user_input.MOVE_RIGHT,280,200.0,128,160));
+		this.addChild(new engine_projects_TouchButton(user_input.MOVE_LEFT,20.0,10.0,128,160));
+		this.addChild(new engine_projects_TouchButton(user_input.MOVE_RIGHT,400,10.0,128,160));
+		var virtual_joystick = new engine_projects_VirtualJoystick();
+		virtual_joystick.init(this.game);
+		this.addChild(virtual_joystick);
 		var _g = 0;
 		var _g1 = this.children;
 		while(_g < _g1.length) {
@@ -728,7 +852,8 @@ engine_projects_GameScene.prototype = $extend(PIXI.Container.prototype,{
 		this.dispatcher = null;
 	}
 	,update: function(dt) {
-		this.dispatcher.dispatch(engine_projects_Events.UPDATE,new engine_projects_UpdateEvent(dt));
+		var update_event = new engine_projects_UpdateEvent(dt);
+		this.dispatcher.dispatch(engine_projects_Events.UPDATE,update_event);
 		this.dispatcher.dispatch(engine_projects_Events.DEPTH,new engine_projects_DepthSortingEvent());
 		(js_Boot.__cast(this.game.locator.getService("GraphicEngine") , engine_projects_IGraphicEngine)).render(this);
 	}
@@ -759,7 +884,7 @@ engine_projects_SceneManager.prototype = {
 	,__class__: engine_projects_SceneManager
 };
 var engine_projects_UrbanChampion = function(width,height) {
-	if(height == null) height = 320.0;
+	if(height == null) height = 180.0;
 	if(width == null) width = 512.0;
 	this.window_width = width;
 	this.window_height = height;
@@ -827,7 +952,6 @@ engine_projects_UrbanChampion.prototype = {
 		var actual_width = window.innerWidth;
 		var actual_height = window.innerHeight;
 		var ratio_scale = Math.min(actual_width / this.window_width,actual_height / this.window_height);
-		ratio_scale *= 0.9;
 		(js_Boot.__cast(this.locator.getService("GraphicEngine") , engine_projects_IGraphicEngine)).resize(this.window_width * ratio_scale,this.window_height * ratio_scale);
 	}
 	,resume: function() {
