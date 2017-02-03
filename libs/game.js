@@ -434,58 +434,6 @@ engine_projects_AnimationList.prototype = $extend(PIXI.Container.prototype,{
 	}
 	,__class__: engine_projects_AnimationList
 });
-var engine_projects_TouchButton = function(key_code,x,y,w,h) {
-	if(h == null) h = 0.0;
-	if(w == null) w = 0.0;
-	if(y == null) y = 0.0;
-	if(x == null) x = 0.0;
-	this.touchEndMethod = null;
-	this.touchStartMethod = null;
-	this.key_code = 0;
-	PIXI.Graphics.call(this);
-	this.x = x;
-	this.y = y;
-	this.key_code = key_code;
-	this.hitArea = new PIXI.Rectangle(0,0,w,h);
-	this.redrawButton(-256);
-};
-engine_projects_TouchButton.__name__ = true;
-engine_projects_TouchButton.__interfaces__ = [engine_projects_IGameObject];
-engine_projects_TouchButton.__super__ = PIXI.Graphics;
-engine_projects_TouchButton.prototype = $extend(PIXI.Graphics.prototype,{
-	init: function(game) {
-		var _g = this;
-		this.interactive = true;
-		var user_input;
-		user_input = js_Boot.__cast(game.locator.getService("UserInput") , engine_projects_IUserInput);
-		this.touchStartMethod = function() {
-			_g.redrawButton(-65536);
-			var event_params = { bubbles : true, keyCode : _g.key_code, code : "ArrowRight"};
-			var keyboard_event = new KeyboardEvent("keydown",event_params);
-			user_input.onKeyDown(keyboard_event,_g.key_code);
-		};
-		this.touchEndMethod = function() {
-			_g.redrawButton(-256);
-			var event_params1 = { bubbles : true, keyCode : _g.key_code, code : "ArrowRight"};
-			var keyboard_event1 = new KeyboardEvent("keyup",event_params1);
-			user_input.onKeyUp(keyboard_event1,_g.key_code);
-		};
-		this.on("touchstart",this.touchStartMethod);
-		this.on("touchend",this.touchEndMethod);
-		this.on("touchendoutside",this.touchEndMethod);
-	}
-	,redrawButton: function(color) {
-		this.clear();
-		this.beginFill(color);
-		this.lineStyle(1,0);
-		this.drawRect(0,0,96,96);
-		this.endFill();
-	}
-	,get_depth: function() {
-		return 1.0;
-	}
-	,__class__: engine_projects_TouchButton
-});
 var engine_projects_ScrollingBackground = function() {
 	this.game = null;
 	this.x_position = 0.0;
@@ -827,8 +775,6 @@ engine_projects_GameScene.prototype = $extend(PIXI.Container.prototype,{
 		this.addChild(new engine_projects_GameScreen());
 		var user_input;
 		user_input = js_Boot.__cast(game.locator.getService("UserInput") , engine_projects_IUserInput);
-		this.addChild(new engine_projects_TouchButton(user_input.MOVE_LEFT,20.0,10.0,128,160));
-		this.addChild(new engine_projects_TouchButton(user_input.MOVE_RIGHT,400,10.0,128,160));
 		var virtual_joystick = new engine_projects_VirtualJoystick();
 		virtual_joystick.init(this.game);
 		this.addChild(virtual_joystick);
