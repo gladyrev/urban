@@ -38,6 +38,14 @@ Std.__name__ = true;
 Std.string = function(s) {
 	return js_Boot.__string_rec(s,"");
 };
+var engine_math_SimpleMath = function() { };
+engine_math_SimpleMath.__name__ = true;
+engine_math_SimpleMath.isPositive = function(value) {
+	if(value > 0.0) return true; else return false;
+};
+engine_math_SimpleMath.isNegative = function(value) {
+	if(value < 0.0) return true; else return false;
+};
 var engine_projects_TickManager = function() {
 	this.update_list = [];
 	this.delta_time = 0.0;
@@ -45,7 +53,7 @@ var engine_projects_TickManager = function() {
 	this.lag = 0.0;
 	this.MS_PER_UPDATE = 0.0;
 	this.MAX_FRAME_TIME = 0.3;
-	this.MS_PER_UPDATE = 0.0166666666666666664;
+	this.MS_PER_UPDATE = 0.016666666666666666;
 	this.loop(0.0);
 };
 engine_projects_TickManager.__name__ = true;
@@ -222,7 +230,9 @@ engine_projects_UpdateEvent.prototype = {
 	,__class__: engine_projects_UpdateEvent
 };
 var engine_projects_UserInput = function() {
+	this.MOVE_DOWN = 40;
 	this.MOVE_RIGHT = 39;
+	this.MOVE_UP = 38;
 	this.MOVE_LEFT = 37;
 	this.key_map = new haxe_ds_IntMap();
 };
@@ -499,7 +509,7 @@ engine_projects_FPSMeter.__interfaces__ = [engine_projects_IUpdateEventListener,
 engine_projects_FPSMeter.__super__ = PIXI.Sprite;
 engine_projects_FPSMeter.prototype = $extend(PIXI.Sprite.prototype,{
 	init: function(game) {
-		var text_style = { font : "14px BlissProBold", align : "left", tint : 16711680};
+		var text_style = { font : "12px SF UI Display Med", align : "left", tint : 16711680};
 		this.text_field = new PIXI.extras.BitmapText("0",text_style);
 		this.text_field.x = this.text_field.y = 3;
 		this.addChild(this.text_field);
@@ -514,6 +524,26 @@ engine_projects_FPSMeter.prototype = $extend(PIXI.Sprite.prototype,{
 		this.text_field.text = "FPS: " + (1.0 / dt | 0);
 	}
 	,__class__: engine_projects_FPSMeter
+});
+var engine_projects_Label = function(x,y,text) {
+	this.text_field = null;
+	PIXI.Sprite.call(this);
+	this.x = x;
+	this.y = y;
+	var text_style = { font : "13px BlissProBold", align : "center", tint : -1};
+	this.text_field = new PIXI.extras.BitmapText(text,text_style);
+	this.addChild(this.text_field);
+};
+engine_projects_Label.__name__ = true;
+engine_projects_Label.__interfaces__ = [engine_projects_IGameObject];
+engine_projects_Label.__super__ = PIXI.Sprite;
+engine_projects_Label.prototype = $extend(PIXI.Sprite.prototype,{
+	init: function(game) {
+	}
+	,get_depth: function() {
+		return 3;
+	}
+	,__class__: engine_projects_Label
 });
 var engine_projects_GameScreenMask = function() {
 	PIXI.Graphics.call(this);
@@ -706,10 +736,19 @@ var engine_projects_VirtualJoystick = function(x,y,w,h) {
 	if(w == null) w = 512;
 	if(y == null) y = 0.0;
 	if(x == null) x = 0.0;
-	this.is_pressed = false;
-	PIXI.Container.call(this);
+	this.user_input = null;
+	this.stick = null;
+	this.border = null;
+	this.start_position_y = 0.0;
+	this.start_position_x = 0.0;
+	this.is_enabled_joystick = false;
+	PIXI.Graphics.call(this);
 	this.x = x;
 	this.y = y;
+	this.beginFill(0);
+	this.lineStyle(1,-1);
+	this.drawRect(0,0,w,h);
+	this.endFill();
 	this.border = new PIXI.Graphics();
 	this.stick = new PIXI.Graphics();
 	this.addChild(this.border);
@@ -718,8 +757,8 @@ var engine_projects_VirtualJoystick = function(x,y,w,h) {
 };
 engine_projects_VirtualJoystick.__name__ = true;
 engine_projects_VirtualJoystick.__interfaces__ = [engine_projects_IGameObject];
-engine_projects_VirtualJoystick.__super__ = PIXI.Container;
-engine_projects_VirtualJoystick.prototype = $extend(PIXI.Container.prototype,{
+engine_projects_VirtualJoystick.__super__ = PIXI.Graphics;
+engine_projects_VirtualJoystick.prototype = $extend(PIXI.Graphics.prototype,{
 	init: function(game) {
 		this.interactive = true;
 		this.buttonMode = true;
@@ -730,30 +769,72 @@ engine_projects_VirtualJoystick.prototype = $extend(PIXI.Container.prototype,{
 		this.on("mousemove",$bind(this,this.touchMoveEventHandler));
 		this.on("mousedown",$bind(this,this.touchStartEventHandler));
 		this.on("mouseup",$bind(this,this.touchEndEventHandler));
+		this.user_input = js_Boot.__cast(game.locator.getService("UserInput") , engine_projects_IUserInput);
 	}
 	,touchStartEventHandler: function(e) {
-		this.is_pressed = true;
-		var position = e.data.getLocalPosition(this.parent);
-		this.drawObject(this.border,position.x,position.y,30,-65536);
-		this.drawObject(this.stick,position.x,position.y,10,-16711936);
-	}
-	,touchEndEventHandler: function(e) {
-		this.is_pressed = false;
-		this.clearObject(this.border);
-		this.clearObject(this.stick);
-	}
-	,touchMoveEventHandler: function(e) {
-		if(this.is_pressed) {
+		if(!this.is_enabled_joystick) {
 			var position = e.data.getLocalPosition(this.parent);
-			this.drawObject(this.stick,position.x,position.y,10,-16711936);
+			this.is_enabled_joystick = true;
+			this.start_position_x = position.x;
+			this.start_position_y = position.y;
+			this.drawObject(this.border,position.x,position.y,25,-65536);
+			this.drawObject(this.stick,position.x,position.y,20,-16711936);
+			console.log("draw objects");
 		}
 	}
-	,clearObject: function(object) {
-		object.clear();
+	,touchEndEventHandler: function(e) {
+		if(this.is_enabled_joystick) {
+			console.log("clear objects");
+			this.is_enabled_joystick = false;
+			this.start_position_x = 0.0;
+			this.start_position_y = 0.0;
+			this.border.clear();
+			this.stick.clear();
+			this.stick.x = this.stick.y = 0;
+			var keyboard_event = new KeyboardEvent("keydown",null);
+			this.user_input.onKeyUp(keyboard_event,this.user_input.MOVE_RIGHT);
+			this.user_input.onKeyUp(keyboard_event,this.user_input.MOVE_LEFT);
+			this.user_input.onKeyUp(keyboard_event,this.user_input.MOVE_UP);
+			this.user_input.onKeyUp(keyboard_event,this.user_input.MOVE_DOWN);
+		}
+	}
+	,touchMoveEventHandler: function(e) {
+		if(this.is_enabled_joystick) {
+			var position = e.data.getLocalPosition(this.parent);
+			if(position.x > this.hitArea.w || position.x < this.hitArea.x || position.y > this.hitArea.height || position.y < this.hitArea.y) {
+				this.touchEndEventHandler(null);
+				return;
+			}
+			var delta_x = position.x - this.start_position_x;
+			var delta_y = position.y - this.start_position_y;
+			if(delta_x > 25) delta_x = 25;
+			if(delta_x < -25) delta_x = -25;
+			if(delta_y > 25) delta_y = 25;
+			if(delta_y < -25) delta_y = -25;
+			this.stick.x = delta_x;
+			this.stick.y = delta_y;
+			var keyboard_event = new KeyboardEvent("keydown",null);
+			if(engine_math_SimpleMath.isNegative(delta_x)) {
+				this.user_input.onKeyUp(keyboard_event,this.user_input.MOVE_RIGHT);
+				this.user_input.onKeyDown(keyboard_event,this.user_input.MOVE_LEFT);
+			}
+			if(engine_math_SimpleMath.isPositive(delta_x)) {
+				this.user_input.onKeyUp(keyboard_event,this.user_input.MOVE_LEFT);
+				this.user_input.onKeyDown(keyboard_event,this.user_input.MOVE_RIGHT);
+			}
+			if(engine_math_SimpleMath.isNegative(delta_y)) {
+				this.user_input.onKeyUp(keyboard_event,this.user_input.MOVE_DOWN);
+				this.user_input.onKeyDown(keyboard_event,this.user_input.MOVE_UP);
+			}
+			if(engine_math_SimpleMath.isPositive(delta_y)) {
+				this.user_input.onKeyUp(keyboard_event,this.user_input.MOVE_UP);
+				this.user_input.onKeyDown(keyboard_event,this.user_input.MOVE_DOWN);
+			}
+		}
 	}
 	,drawObject: function(object,x,y,radius,color) {
-		object.clear();
 		object.beginFill(color);
+		object.lineStyle(1,-1);
 		object.drawCircle(x,y,radius);
 		object.endFill();
 	}
@@ -775,9 +856,11 @@ engine_projects_GameScene.prototype = $extend(PIXI.Container.prototype,{
 		this.addChild(new engine_projects_GameScreen());
 		var user_input;
 		user_input = js_Boot.__cast(game.locator.getService("UserInput") , engine_projects_IUserInput);
-		var virtual_joystick = new engine_projects_VirtualJoystick();
+		var virtual_joystick = new engine_projects_VirtualJoystick(5,40,120,130);
 		virtual_joystick.init(this.game);
 		this.addChild(virtual_joystick);
+		var label = new engine_projects_Label(17,10,"TOUCH INSIDE BOX\nTO VIEW JOYSTICK");
+		this.addChild(label);
 		var _g = 0;
 		var _g1 = this.children;
 		while(_g < _g1.length) {
@@ -899,6 +982,7 @@ engine_projects_UrbanChampion.prototype = {
 		var actual_width = window.innerWidth;
 		var actual_height = window.innerHeight;
 		var ratio_scale = Math.min(actual_width / this.window_width,actual_height / this.window_height);
+		ratio_scale *= 0.8;
 		(js_Boot.__cast(this.locator.getService("GraphicEngine") , engine_projects_IGraphicEngine)).resize(this.window_width * ratio_scale,this.window_height * ratio_scale);
 	}
 	,resume: function() {

@@ -3,6 +3,7 @@
 	"resource_list":
 					[
 							{ "name": "spritesheet", "url": "spritesheet.json" },
-							{ "name": "BlissProBold", "url": "fonts/BlissProBold.fnt" }
+							{ "name": "BlissProBold", "url": "fonts/BlissProBold.fnt" },
+							{ "name": "SFUIDisplay", "url": "fonts/sfuidisplay14_en.fnt" }
 					]
 }
