@@ -230,6 +230,8 @@ engine_projects_UpdateEvent.prototype = {
 	,__class__: engine_projects_UpdateEvent
 };
 var engine_projects_UserInput = function() {
+	this.STRONG_HIT = 90;
+	this.EASY_HIT = 88;
 	this.MOVE_DOWN = 40;
 	this.MOVE_RIGHT = 39;
 	this.MOVE_UP = 38;
@@ -443,6 +445,58 @@ engine_projects_AnimationList.prototype = $extend(PIXI.Container.prototype,{
 		this.getAnimation(this.current_state).update(dt);
 	}
 	,__class__: engine_projects_AnimationList
+});
+var engine_projects_TouchButton = function(key_code,x,y,w,h) {
+	if(h == null) h = 0.0;
+	if(w == null) w = 0.0;
+	if(y == null) y = 0.0;
+	if(x == null) x = 0.0;
+	this.touchEndMethod = null;
+	this.touchStartMethod = null;
+	this.key_code = 0;
+	PIXI.Graphics.call(this);
+	this.x = x;
+	this.y = y;
+	this.key_code = key_code;
+	this.hitArea = new PIXI.Rectangle(0,0,w,h);
+	this.redrawButton(-256);
+};
+engine_projects_TouchButton.__name__ = true;
+engine_projects_TouchButton.__interfaces__ = [engine_projects_IGameObject];
+engine_projects_TouchButton.__super__ = PIXI.Graphics;
+engine_projects_TouchButton.prototype = $extend(PIXI.Graphics.prototype,{
+	init: function(game) {
+		var _g = this;
+		this.interactive = true;
+		var user_input;
+		user_input = js_Boot.__cast(game.locator.getService("UserInput") , engine_projects_IUserInput);
+		this.touchStartMethod = function() {
+			_g.redrawButton(-65536);
+			var event_params = { bubbles : true, keyCode : _g.key_code, code : "ArrowRight"};
+			var keyboard_event = new KeyboardEvent("keydown",event_params);
+			user_input.onKeyDown(keyboard_event,_g.key_code);
+		};
+		this.touchEndMethod = function() {
+			_g.redrawButton(-256);
+			var event_params1 = { bubbles : true, keyCode : _g.key_code, code : "ArrowRight"};
+			var keyboard_event1 = new KeyboardEvent("keyup",event_params1);
+			user_input.onKeyUp(keyboard_event1,_g.key_code);
+		};
+		this.on("touchstart",this.touchStartMethod);
+		this.on("touchend",this.touchEndMethod);
+		this.on("touchendoutside",this.touchEndMethod);
+	}
+	,redrawButton: function(color) {
+		this.clear();
+		this.beginFill(color);
+		this.lineStyle(1,0);
+		this.drawRect(0,0,this.hitArea.width,this.hitArea.height);
+		this.endFill();
+	}
+	,get_depth: function() {
+		return 1.0;
+	}
+	,__class__: engine_projects_TouchButton
 });
 var engine_projects_ScrollingBackground = function() {
 	this.game = null;
@@ -662,6 +716,7 @@ engine_projects_Urban.prototype = $extend(PIXI.Graphics.prototype,{
 		initializeAnimation("move_left","move_right",4,true);
 		initializeAnimation(null,"move_right",4);
 		initializeAnimation(null,"jab",2);
+		initializeAnimation(null,"uppercut",2);
 		var dispatcher;
 		dispatcher = js_Boot.__cast(game.locator.getService("EventDispatcher") , engine_projects_IEventDispatcher);
 		dispatcher.addListener(engine_projects_Events.UPDATE,this);
@@ -683,7 +738,9 @@ engine_projects_Urban.prototype = $extend(PIXI.Graphics.prototype,{
 		user_input = js_Boot.__cast(game.locator.getService("UserInput") , engine_projects_IUserInput);
 		var move_left = user_input.isDown(user_input.MOVE_LEFT);
 		var move_right = user_input.isDown(user_input.MOVE_RIGHT);
-		var state_was_changed = move_left || move_right;
+		var strong_hit = user_input.isDown(user_input.STRONG_HIT);
+		var easy_hit = user_input.isDown(user_input.EASY_HIT);
+		var state_was_changed = move_left || move_right || strong_hit || easy_hit;
 		if(move_left) {
 			this.character_animation.setState("move_left");
 			this.move_direction = -1;
@@ -691,6 +748,14 @@ engine_projects_Urban.prototype = $extend(PIXI.Graphics.prototype,{
 		if(move_right) {
 			this.character_animation.setState("move_right");
 			this.move_direction = 1;
+		}
+		if(strong_hit) {
+			this.character_animation.setState("uppercut");
+			this.move_direction = 0;
+		}
+		if(easy_hit) {
+			this.character_animation.setState("jab");
+			this.move_direction = 0;
 		}
 		if(!state_was_changed) {
 			this.character_animation.setState("idle");
@@ -736,6 +801,7 @@ var engine_projects_VirtualJoystick = function(x,y,w,h) {
 	if(w == null) w = 512;
 	if(y == null) y = 0.0;
 	if(x == null) x = 0.0;
+	this.touch_identifier = null;
 	this.user_input = null;
 	this.stick = null;
 	this.border = null;
@@ -745,15 +811,11 @@ var engine_projects_VirtualJoystick = function(x,y,w,h) {
 	PIXI.Graphics.call(this);
 	this.x = x;
 	this.y = y;
-	this.beginFill(0);
-	this.lineStyle(1,-1);
-	this.drawRect(0,0,w,h);
-	this.endFill();
+	this.hitArea = new PIXI.Rectangle(0,0,w,h);
 	this.border = new PIXI.Graphics();
 	this.stick = new PIXI.Graphics();
 	this.addChild(this.border);
 	this.addChild(this.stick);
-	this.hitArea = new PIXI.Rectangle(x,y,w,h);
 };
 engine_projects_VirtualJoystick.__name__ = true;
 engine_projects_VirtualJoystick.__interfaces__ = [engine_projects_IGameObject];
@@ -769,28 +831,28 @@ engine_projects_VirtualJoystick.prototype = $extend(PIXI.Graphics.prototype,{
 		this.on("mousemove",$bind(this,this.touchMoveEventHandler));
 		this.on("mousedown",$bind(this,this.touchStartEventHandler));
 		this.on("mouseup",$bind(this,this.touchEndEventHandler));
+		this.on("mouseupoutside",$bind(this,this.touchEndEventHandler));
 		this.user_input = js_Boot.__cast(game.locator.getService("UserInput") , engine_projects_IUserInput);
 	}
 	,touchStartEventHandler: function(e) {
 		if(!this.is_enabled_joystick) {
-			var position = e.data.getLocalPosition(this.parent);
+			this.touch_identifier = e.data.identifier;
+			var position = e.data.getLocalPosition(this);
 			this.is_enabled_joystick = true;
 			this.start_position_x = position.x;
 			this.start_position_y = position.y;
-			this.drawObject(this.border,position.x,position.y,25,-65536);
-			this.drawObject(this.stick,position.x,position.y,20,-16711936);
-			console.log("draw objects");
+			this.drawObject(this.border,position.x,position.y,30,-65536);
+			this.drawObject(this.stick,position.x,position.y,25,-16711936);
 		}
 	}
 	,touchEndEventHandler: function(e) {
-		if(this.is_enabled_joystick) {
-			console.log("clear objects");
+		if(this.is_enabled_joystick && this.touch_identifier == e.data.identifier) {
 			this.is_enabled_joystick = false;
+			this.stick.x = this.stick.y = 0;
 			this.start_position_x = 0.0;
 			this.start_position_y = 0.0;
 			this.border.clear();
 			this.stick.clear();
-			this.stick.x = this.stick.y = 0;
 			var keyboard_event = new KeyboardEvent("keydown",null);
 			this.user_input.onKeyUp(keyboard_event,this.user_input.MOVE_RIGHT);
 			this.user_input.onKeyUp(keyboard_event,this.user_input.MOVE_LEFT);
@@ -799,18 +861,17 @@ engine_projects_VirtualJoystick.prototype = $extend(PIXI.Graphics.prototype,{
 		}
 	}
 	,touchMoveEventHandler: function(e) {
-		if(this.is_enabled_joystick) {
-			var position = e.data.getLocalPosition(this.parent);
-			if(position.x > this.hitArea.w || position.x < this.hitArea.x || position.y > this.hitArea.height || position.y < this.hitArea.y) {
-				this.touchEndEventHandler(null);
-				return;
+		if(this.is_enabled_joystick && this.touch_identifier == e.data.identifier) {
+			var local_position = e.data.getLocalPosition(this);
+			var delta_x = local_position.x - this.start_position_x;
+			var delta_y = local_position.y - this.start_position_y;
+			var stick_distance = Math.sqrt(delta_x * delta_x + delta_y * delta_y);
+			if(stick_distance > 30) {
+				var normalized_x = delta_x / stick_distance;
+				var normalized_y = delta_y / stick_distance;
+				delta_x = normalized_x * 30;
+				delta_y = normalized_y * 30;
 			}
-			var delta_x = position.x - this.start_position_x;
-			var delta_y = position.y - this.start_position_y;
-			if(delta_x > 25) delta_x = 25;
-			if(delta_x < -25) delta_x = -25;
-			if(delta_y > 25) delta_y = 25;
-			if(delta_y < -25) delta_y = -25;
 			this.stick.x = delta_x;
 			this.stick.y = delta_y;
 			var keyboard_event = new KeyboardEvent("keydown",null);
@@ -856,6 +917,8 @@ engine_projects_GameScene.prototype = $extend(PIXI.Container.prototype,{
 		this.addChild(new engine_projects_GameScreen());
 		var user_input;
 		user_input = js_Boot.__cast(game.locator.getService("UserInput") , engine_projects_IUserInput);
+		this.addChild(new engine_projects_TouchButton(user_input.EASY_HIT,390,20,110,60));
+		this.addChild(new engine_projects_TouchButton(user_input.STRONG_HIT,390,100,110,60));
 		var virtual_joystick = new engine_projects_VirtualJoystick(5,40,120,130);
 		virtual_joystick.init(this.game);
 		this.addChild(virtual_joystick);
