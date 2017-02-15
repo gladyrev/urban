@@ -4,6 +4,8 @@
 					[
 							{ "name": "spritesheet", "url": "spritesheet.json" },
 							{ "name": "BlissProBold", "url": "fonts/BlissProBold.fnt" },
-							{ "name": "SFUIDisplay", "url": "fonts/sfuidisplay14_en.fnt" }
+							{ "name": "SFUIDisplay", "url": "fonts/sfuidisplay14_en.fnt" },
+							{ "name": "VsrOsdMono12", "url": "fonts/VsrOsdMono12.fnt" },
+							{ "name": "Visitor12", "url": "fonts/Visitor65.fnt" }
 					]
 }

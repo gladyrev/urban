@@ -17,6 +17,9 @@ Reflect.field = function(o,field) {
 		return null;
 	}
 };
+Reflect.setField = function(o,field,value) {
+	o[field] = value;
+};
 Reflect.fields = function(o) {
 	var a = [];
 	if(o != null) {
@@ -436,7 +439,7 @@ var src_ServiceLocator = function() {
 };
 src_ServiceLocator.__name__ = true;
 src_ServiceLocator.prototype = {
-	register: function(name,service) {
+	provide: function(name,service) {
 		this.services.set(name,service);
 	}
 	,getService: function(name) {
@@ -486,6 +489,11 @@ src_IGraphicEngine.prototype = {
 };
 var src_IPhysicsEngine = function() { };
 src_IPhysicsEngine.__name__ = true;
+var src_IResourceManager = function() { };
+src_IResourceManager.__name__ = true;
+src_IResourceManager.prototype = {
+	__class__: src_IResourceManager
+};
 var src_Events = { __ename__ : true, __constructs__ : ["UPDATE","RENDER","DEPTH"] };
 src_Events.UPDATE = ["UPDATE",0];
 src_Events.UPDATE.toString = $estr;
@@ -500,11 +508,6 @@ var src_IEventDispatcher = function() { };
 src_IEventDispatcher.__name__ = true;
 src_IEventDispatcher.prototype = {
 	__class__: src_IEventDispatcher
-};
-var src_IResourceManager = function() { };
-src_IResourceManager.__name__ = true;
-src_IResourceManager.prototype = {
-	__class__: src_IResourceManager
 };
 var src_IEvent = function() { };
 src_IEvent.__name__ = true;
@@ -609,6 +612,7 @@ src_UserInput.prototype = {
 	,__class__: src_UserInput
 };
 var src_GraphicsEngine = function(width,height) {
+	this.device_pixel_ratio = 1.0;
 	this.scr_height = 0.0;
 	this.scr_width = 0.0;
 	this.scr_width = width;
@@ -618,9 +622,11 @@ src_GraphicsEngine.__name__ = true;
 src_GraphicsEngine.__interfaces__ = [src_IGraphicEngine,src_IService];
 src_GraphicsEngine.prototype = {
 	init: function() {
+		this.device_pixel_ratio = window.devicePixelRatio;
 		var options = { };
 		options.antialias = false;
-		options.resolution = window.devicePixelRatio;
+		options.transparent = false;
+		options.resolution = this.device_pixel_ratio;
 		this.internal_renderer = PIXI.autoDetectRenderer(this.scr_width,this.scr_height,options);
 		this.internal_renderer.view.id = "canvas";
 		window.document.body.appendChild(this.internal_renderer.view);
@@ -630,7 +636,8 @@ src_GraphicsEngine.prototype = {
 	}
 	,resize: function(width,height) {
 		this.internal_renderer.resize(width,height);
-		if(window.devicePixelRatio > 1.0) {
+		if(this.device_pixel_ratio > 1.0) {
+			console.log("use browser scaling");
 			this.internal_renderer.view.style.width = width + "px";
 			this.internal_renderer.view.style.height = height + "px";
 		}
@@ -743,7 +750,7 @@ src_Animation.prototype = $extend(PIXI.Sprite.prototype,{
 	,update: function(dt) {
 		this.delta_frame += this.play_speed * dt;
 		if(this.delta_frame >= 1.0) {
-			this.delta_frame = 0.0;
+			this.delta_frame -= 1.0;
 			this.current_frame_index += 1;
 			if(this.current_frame_index >= this.frames_array.length) this.current_frame_index = 0;
 		}
@@ -797,7 +804,7 @@ src_AnimationList.prototype = $extend(PIXI.Container.prototype,{
 });
 var src_ScrollingBackground = function() {
 	this.game = null;
-	this.scroll_speed = 10.0;
+	this.scroll_speed = 12.0;
 	this.scroll_direction = 0;
 	PIXI.Sprite.call(this);
 	this.object_list = [];
@@ -825,14 +832,11 @@ src_ScrollingBackground.prototype = $extend(PIXI.Sprite.prototype,{
 	}
 	,update: function(dt) {
 		this.handleUserInput(this.game);
-		var counter = this.object_list.length;
-		var _g = 0;
-		var _g1 = this.object_list;
-		while(_g < _g1.length) {
-			var object = _g1[_g];
-			++_g;
-			object.tilePosition.x += this.scroll_direction * (this.scroll_speed / counter) * dt;
-			counter -= 1;
+		var _g1 = 0;
+		var _g = this.object_list.length;
+		while(_g1 < _g) {
+			var i = _g1++;
+			this.object_list[i].tilePosition.x += this.scroll_direction * (this.scroll_speed / (this.object_list.length - i)) * dt;
 		}
 	}
 	,get_depth: function() {
@@ -850,36 +854,19 @@ src_ScrollingBackground.prototype = $extend(PIXI.Sprite.prototype,{
 	}
 	,__class__: src_ScrollingBackground
 });
-var src_FPSMeter = function() {
-	PIXI.Sprite.call(this);
-};
-src_FPSMeter.__name__ = true;
-src_FPSMeter.__interfaces__ = [src_IUpdateEventListener,src_IGameObject];
-src_FPSMeter.__super__ = PIXI.Sprite;
-src_FPSMeter.prototype = $extend(PIXI.Sprite.prototype,{
-	init: function(game) {
-		var text_style = { font : "12px SF UI Display Med", align : "left", tint : 16711680};
-		this.text_field = new PIXI.extras.BitmapText("0",text_style);
-		this.text_field.x = this.text_field.y = 3;
-		this.addChild(this.text_field);
-		var dispatcher;
-		dispatcher = js_Boot.__cast(game.locator.getService("EventDispatcher") , src_IEventDispatcher);
-		dispatcher.addListener(src_Events.UPDATE,this);
-	}
-	,get_depth: function() {
-		return 3;
-	}
-	,update: function(dt) {
-		this.text_field.text = "FPS: " + (1.0 / dt | 0);
-	}
-	,__class__: src_FPSMeter
-});
-var src_Label = function(x,y,text) {
+var src_Label = function(x,y,text,custom_text_style) {
 	this.text_field = null;
 	PIXI.Sprite.call(this);
 	this.x = x;
 	this.y = y;
-	var text_style = { font : "13px BlissProBold", align : "center", tint : -1};
+	var text_style = { font : "12px Visitor65", align : "center", tint : 16777215};
+	var _g = 0;
+	var _g1 = Reflect.fields(custom_text_style);
+	while(_g < _g1.length) {
+		var key = _g1[_g];
+		++_g;
+		Reflect.setField(text_style,key,Reflect.field(custom_text_style,key));
+	}
 	this.text_field = new PIXI.extras.BitmapText(text,text_style);
 	this.addChild(this.text_field);
 };
@@ -892,7 +879,32 @@ src_Label.prototype = $extend(PIXI.Sprite.prototype,{
 	,get_depth: function() {
 		return 3;
 	}
+	,update: function(text) {
+		this.text_field.text = text;
+	}
 	,__class__: src_Label
+});
+var src_FPSMeter = function() {
+	PIXI.Sprite.call(this);
+};
+src_FPSMeter.__name__ = true;
+src_FPSMeter.__interfaces__ = [src_IUpdateEventListener,src_IGameObject];
+src_FPSMeter.__super__ = PIXI.Sprite;
+src_FPSMeter.prototype = $extend(PIXI.Sprite.prototype,{
+	init: function(game) {
+		this.label = new src_Label(3,3,"",{ tint : 16711680});
+		this.addChild(this.label);
+		var dispatcher;
+		dispatcher = js_Boot.__cast(game.locator.getService("EventDispatcher") , src_IEventDispatcher);
+		dispatcher.addListener(src_Events.UPDATE,this);
+	}
+	,get_depth: function() {
+		return 3;
+	}
+	,update: function(dt) {
+		this.label.update("FPS: " + (1.0 / dt | 0));
+	}
+	,__class__: src_FPSMeter
 });
 var src_GameScreenMask = function() {
 	PIXI.Graphics.call(this);
@@ -1100,7 +1112,7 @@ src_UIScreen.prototype = $extend(PIXI.Container.prototype,{
 		this.addChild(new src_TouchButton(user_input.STRONG_HIT,390,100,110,60));
 		var virtual_joystick = new src_VirtualJoystick(5,40,120,130);
 		this.addChild(virtual_joystick);
-		var label = new src_Label(4,10,"TOUCH INSIDE THE BOX\nTO ACCESS THE JOYSTICK");
+		var label = new src_Label(17,14,"TOUCH INSIDE\nTHE BOX TO ACCESS\nTHE JOYSTICK");
 		this.addChild(label);
 		this.addChild(new src_FPSMeter());
 		var _g = 0;
@@ -1134,7 +1146,7 @@ var src_TouchButton = function(key_code,x,y,w,h) {
 	this.button_height = h;
 	this.key_code = key_code;
 	this.hitArea = new PIXI.Rectangle(0,0,this.button_width,this.button_height);
-	this.redrawButton(-256);
+	this.redrawButton(16777215);
 };
 src_TouchButton.__name__ = true;
 src_TouchButton.__interfaces__ = [src_IGameObject];
@@ -1151,21 +1163,24 @@ src_TouchButton.prototype = $extend(PIXI.Graphics.prototype,{
 		this.on("mouseup",$bind(this,this.touchEndEventHandler));
 		this.on("mouseupoutside",$bind(this,this.touchEndEventHandler));
 	}
+	,isValidTouch: function(e) {
+		return this.is_enabled && this.touch_identifier == src_utils_Utils.getTouchIdentifier(e);
+	}
 	,touchStartEventHandler: function(e) {
 		if(!this.is_enabled) {
 			this.is_enabled = true;
-			this.touch_identifier = src_utils_Utils.getEventIdentifier(e);
-			this.redrawButton(-65536);
+			this.touch_identifier = src_utils_Utils.getTouchIdentifier(e);
+			this.redrawButton(16776960);
 			var event_params = { bubbles : true, keyCode : this.key_code, code : "ArrowRight"};
 			var keyboard_event = new KeyboardEvent("keydown",event_params);
 			this.user_input.onKeyDown(keyboard_event,this.key_code);
 		}
 	}
 	,touchEndEventHandler: function(e) {
-		if(this.is_enabled && this.touch_identifier == src_utils_Utils.getEventIdentifier(e)) {
+		if(this.isValidTouch(e)) {
 			this.is_enabled = false;
 			this.touch_identifier = null;
-			this.redrawButton(-256);
+			this.redrawButton(16777215);
 			var event_params = { bubbles : true, keyCode : this.key_code, code : "ArrowRight"};
 			var keyboard_event = new KeyboardEvent("keyup",event_params);
 			this.user_input.onKeyUp(keyboard_event,this.key_code);
@@ -1225,10 +1240,13 @@ src_VirtualJoystick.prototype = $extend(PIXI.Graphics.prototype,{
 		this.on("mouseupoutside",$bind(this,this.touchEndEventHandler));
 		this.user_input = js_Boot.__cast(game.locator.getService("UserInput") , src_IUserInput);
 	}
+	,isValidTouch: function(e) {
+		return this.is_enabled && this.touch_identifier == src_utils_Utils.getTouchIdentifier(e);
+	}
 	,touchStartEventHandler: function(e) {
 		if(!this.is_enabled) {
 			this.is_enabled = true;
-			this.touch_identifier = src_utils_Utils.getEventIdentifier(e);
+			this.touch_identifier = src_utils_Utils.getTouchIdentifier(e);
 			var position = e.data.getLocalPosition(this);
 			this.start_position_x = position.x;
 			this.start_position_y = position.y;
@@ -1237,7 +1255,7 @@ src_VirtualJoystick.prototype = $extend(PIXI.Graphics.prototype,{
 		}
 	}
 	,touchEndEventHandler: function(e) {
-		if(this.is_enabled && this.touch_identifier == src_utils_Utils.getEventIdentifier(e)) {
+		if(this.isValidTouch(e)) {
 			this.is_enabled = false;
 			this.touch_identifier = null;
 			this.stick.x = this.stick.y = 0;
@@ -1253,7 +1271,7 @@ src_VirtualJoystick.prototype = $extend(PIXI.Graphics.prototype,{
 		}
 	}
 	,touchMoveEventHandler: function(e) {
-		if(this.is_enabled && this.touch_identifier == src_utils_Utils.getEventIdentifier(e)) {
+		if(this.isValidTouch(e)) {
 			var local_position = e.data.getLocalPosition(this);
 			var delta_x = local_position.x - this.start_position_x;
 			var delta_y = local_position.y - this.start_position_y;
@@ -1376,7 +1394,6 @@ var src_Game = function(width,height) {
 src_Game.__name__ = true;
 src_Game.__interfaces__ = [src_IGame];
 src_Game.main = function() {
-	PIXI.SCALE_MODES.DEFAULT = PIXI.SCALE_MODES.NEAREST;
 	var custom_loader = null;
 	var preloader = new src_ResourceLoader();
 	preloader.reset();
@@ -1404,12 +1421,12 @@ src_Game.main = function() {
 };
 src_Game.prototype = {
 	init: function(_resources) {
-		this.locator.register("EventDispatcher",new src_EventDispatcher());
-		this.locator.register("AudioSystem",new src_AudioEngine());
-		this.locator.register("GraphicEngine",new src_GraphicsEngine(this.window_width,this.window_height));
-		this.locator.register("PhysicsEngine",new src_PhysicsEngine());
-		this.locator.register("UserInput",new src_UserInput());
-		this.locator.register("ResourceManager",new src_ResourceManager(_resources));
+		this.locator.provide("EventDispatcher",new src_EventDispatcher());
+		this.locator.provide("AudioSystem",new src_AudioEngine());
+		this.locator.provide("GraphicEngine",new src_GraphicsEngine(this.window_width,this.window_height));
+		this.locator.provide("PhysicsEngine",new src_PhysicsEngine());
+		this.locator.provide("UserInput",new src_UserInput());
+		this.locator.provide("ResourceManager",new src_ResourceManager(_resources));
 		this.locator.getService("EventDispatcher").init();
 		this.locator.getService("AudioSystem").init();
 		this.locator.getService("GraphicEngine").init();
@@ -1435,8 +1452,7 @@ src_Game.prototype = {
 		var actual_height = window.innerHeight;
 		var ratio_scale = Math.min(actual_width / this.window_width,actual_height / this.window_height);
 		ratio_scale = Math.floor(ratio_scale * 0.8);
-		if(ratio_scale == 0.0) ratio_scale = 1.0; else ratio_scale = ratio_scale;
-		console.log(ratio_scale);
+		if(ratio_scale == 0.0) ratio_scale = 1.0;
 		this.scene_manager.scaleScene(ratio_scale);
 		(js_Boot.__cast(this.locator.getService("GraphicEngine") , src_IGraphicEngine)).resize(this.window_width * ratio_scale,this.window_height * ratio_scale);
 		window.scrollTo(0,0);
@@ -1456,10 +1472,13 @@ src_math_SimpleMath.isNegative = function(value) {
 };
 var src_utils_Utils = function() { };
 src_utils_Utils.__name__ = true;
-src_utils_Utils.getEventIdentifier = function(e) {
-	var identifier = 0;
-	if(Object.prototype.hasOwnProperty.call(e.data,"identifier")) identifier = Reflect.field(e.data,"identifier"); else identifier = Reflect.field(Reflect.field(e.data,"originalEvent"),"identifier");
-	return identifier;
+src_utils_Utils.getTouchIdentifier = function(e) {
+	var touch_identifier = Reflect.field(e.data,"identifier");
+	if(e.type == "touch") {
+		var changed_touches = Reflect.field(e.data.originalEvent,"changedTouches");
+		touch_identifier = Reflect.field(changed_touches[touch_identifier],"identifier");
+	}
+	return touch_identifier;
 };
 var $_, $fid = 0;
 function $bind(o,m) { if( m == null ) return null; if( m.__id__ == null ) m.__id__ = $fid++; var f; if( o.hx__closures__ == null ) o.hx__closures__ = {}; else f = o.hx__closures__[m.__id__]; if( f == null ) { f = function(){ return f.method.apply(f.scope, arguments); }; f.scope = o; f.method = m; o.hx__closures__[m.__id__] = f; } return f; }
