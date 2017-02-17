@@ -395,40 +395,6 @@ js_Boot.__isNativeObj = function(o) {
 js_Boot.__resolveNativeClass = function(name) {
 	return $global[name];
 };
-var src_TickManager = function() {
-	this.update_list = [];
-	this.delta_time = 0.0;
-	this.prev_frame_time = 0.0;
-	this.lag = 0.0;
-	this.MS_PER_UPDATE = 0.0;
-	this.MAX_FRAME_TIME = 0.3;
-	this.MS_PER_UPDATE = 0.0166666666666666664;
-	this.loop(0.0);
-};
-src_TickManager.__name__ = true;
-src_TickManager.prototype = {
-	pushBack: function(f) {
-		this.update_list.push(f);
-	}
-	,loop: function(timestamp) {
-		this.delta_time = (timestamp - this.prev_frame_time) / 1000.0;
-		if(this.delta_time > this.MAX_FRAME_TIME) this.delta_time = this.MAX_FRAME_TIME; else this.delta_time = this.delta_time;
-		this.lag += this.delta_time;
-		while(this.lag >= this.MS_PER_UPDATE) {
-			var _g = 0;
-			var _g1 = this.update_list;
-			while(_g < _g1.length) {
-				var callback = _g1[_g];
-				++_g;
-				callback(this.MS_PER_UPDATE);
-			}
-			this.lag -= this.MS_PER_UPDATE;
-		}
-		this.prev_frame_time = timestamp;
-		window.requestAnimationFrame($bind(this,this.loop));
-	}
-	,__class__: src_TickManager
-};
 var src_IService = function() { };
 src_IService.__name__ = true;
 src_IService.prototype = {
@@ -494,7 +460,7 @@ src_IResourceManager.__name__ = true;
 src_IResourceManager.prototype = {
 	__class__: src_IResourceManager
 };
-var src_Events = { __ename__ : true, __constructs__ : ["UPDATE","RENDER","DEPTH"] };
+var src_Events = { __ename__ : true, __constructs__ : ["UPDATE","RENDER","DEPTH","TICK"] };
 src_Events.UPDATE = ["UPDATE",0];
 src_Events.UPDATE.toString = $estr;
 src_Events.UPDATE.__enum__ = src_Events;
@@ -504,11 +470,17 @@ src_Events.RENDER.__enum__ = src_Events;
 src_Events.DEPTH = ["DEPTH",2];
 src_Events.DEPTH.toString = $estr;
 src_Events.DEPTH.__enum__ = src_Events;
+src_Events.TICK = ["TICK",3];
+src_Events.TICK.toString = $estr;
+src_Events.TICK.__enum__ = src_Events;
 var src_IEventDispatcher = function() { };
 src_IEventDispatcher.__name__ = true;
 src_IEventDispatcher.prototype = {
 	__class__: src_IEventDispatcher
 };
+var src_ITickManager = function() { };
+src_ITickManager.__name__ = true;
+src_ITickManager.__interfaces__ = [src_IEventDispatcher];
 var src_IEvent = function() { };
 src_IEvent.__name__ = true;
 src_IEvent.prototype = {
@@ -578,6 +550,52 @@ src_UpdateEvent.prototype = {
 	}
 	,__class__: src_UpdateEvent
 };
+var src_ITickEventListener = function() { };
+src_ITickEventListener.__name__ = true;
+src_ITickEventListener.prototype = {
+	__class__: src_ITickEventListener
+};
+var src_TickEvent = function(dt) {
+	this.dt = dt;
+};
+src_TickEvent.__name__ = true;
+src_TickEvent.__interfaces__ = [src_IEvent];
+src_TickEvent.prototype = {
+	notify: function(listener) {
+		listener.tick(this.dt);
+	}
+	,__class__: src_TickEvent
+};
+var src_TickManager = function() {
+	this.delta_time = 0.0;
+	this.prev_frame_time = 0.0;
+	this.lag = 0.0;
+	this.MS_PER_UPDATE = 0.0;
+	this.MAX_FRAME_TIME = 1.0;
+	src_EventDispatcher.call(this);
+	this.MS_PER_UPDATE = 0.0166666666666666664;
+	this.loop(0.0);
+};
+src_TickManager.__name__ = true;
+src_TickManager.__interfaces__ = [src_ITickManager,src_IService];
+src_TickManager.__super__ = src_EventDispatcher;
+src_TickManager.prototype = $extend(src_EventDispatcher.prototype,{
+	loop: function(timestamp) {
+		this.delta_time = (timestamp - this.prev_frame_time) / 1000.0;
+		if(this.delta_time > this.MAX_FRAME_TIME) this.delta_time = this.MAX_FRAME_TIME; else this.delta_time = this.delta_time;
+		this.lag += this.delta_time;
+		var tick_event = new src_TickEvent(this.MS_PER_UPDATE);
+		var update_event = new src_UpdateEvent(this.delta_time);
+		while(this.lag >= this.MS_PER_UPDATE) {
+			this.dispatch(src_Events.TICK,tick_event);
+			this.lag -= this.MS_PER_UPDATE;
+		}
+		this.dispatch(src_Events.UPDATE,update_event);
+		this.prev_frame_time = timestamp;
+		window.requestAnimationFrame($bind(this,this.loop));
+	}
+	,__class__: src_TickManager
+});
 var src_UserInput = function() {
 	this.STRONG_HIT = 90;
 	this.EASY_HIT = 88;
@@ -885,6 +903,7 @@ src_Label.prototype = $extend(PIXI.Sprite.prototype,{
 	,__class__: src_Label
 });
 var src_FPSMeter = function() {
+	this.milliseconds = 0.0;
 	PIXI.Sprite.call(this);
 };
 src_FPSMeter.__name__ = true;
@@ -894,15 +913,19 @@ src_FPSMeter.prototype = $extend(PIXI.Sprite.prototype,{
 	init: function(game) {
 		this.label = new src_Label(3,3,"",{ tint : 16711680});
 		this.addChild(this.label);
-		var dispatcher;
-		dispatcher = js_Boot.__cast(game.locator.getService("EventDispatcher") , src_IEventDispatcher);
-		dispatcher.addListener(src_Events.UPDATE,this);
+		var tick_manager;
+		tick_manager = js_Boot.__cast(game.locator.getService("TickManager") , src_ITickManager);
+		tick_manager.addListener(src_Events.UPDATE,this);
 	}
 	,get_depth: function() {
 		return 3;
 	}
 	,update: function(dt) {
-		this.label.update("FPS: " + (1.0 / dt | 0));
+		this.milliseconds += dt;
+		if(this.milliseconds > 0.5) {
+			this.label.update("FPS: " + (1.0 / dt | 0));
+			this.milliseconds = 0.0;
+		}
 	}
 	,__class__: src_FPSMeter
 });
@@ -1392,7 +1415,7 @@ var src_Game = function(width,height) {
 	window.addEventListener("onbeforeunload",$bind(this,this.destroy),false);
 };
 src_Game.__name__ = true;
-src_Game.__interfaces__ = [src_IGame];
+src_Game.__interfaces__ = [src_ITickEventListener,src_IGame];
 src_Game.main = function() {
 	var custom_loader = null;
 	var preloader = new src_ResourceLoader();
@@ -1421,12 +1444,14 @@ src_Game.main = function() {
 };
 src_Game.prototype = {
 	init: function(_resources) {
+		this.locator.provide("TickManager",new src_TickManager());
 		this.locator.provide("EventDispatcher",new src_EventDispatcher());
 		this.locator.provide("AudioSystem",new src_AudioEngine());
 		this.locator.provide("GraphicEngine",new src_GraphicsEngine(this.window_width,this.window_height));
 		this.locator.provide("PhysicsEngine",new src_PhysicsEngine());
 		this.locator.provide("UserInput",new src_UserInput());
 		this.locator.provide("ResourceManager",new src_ResourceManager(_resources));
+		this.locator.getService("TickManager").init();
 		this.locator.getService("EventDispatcher").init();
 		this.locator.getService("AudioSystem").init();
 		this.locator.getService("GraphicEngine").init();
@@ -1458,7 +1483,12 @@ src_Game.prototype = {
 		window.scrollTo(0,0);
 	}
 	,resume: function() {
-		src_TickManager.instance.pushBack(($_=this.scene_manager,$bind($_,$_.update)));
+		var tick_manager;
+		tick_manager = js_Boot.__cast(this.locator.getService("TickManager") , src_ITickManager);
+		tick_manager.addListener(src_Events.TICK,this);
+	}
+	,tick: function(dt) {
+		this.scene_manager.update(dt);
 	}
 	,__class__: src_Game
 };
@@ -1495,6 +1525,5 @@ var Class = { __name__ : ["Class"]};
 var Enum = { };
 var __map_reserved = {}
 js_Boot.__toStr = {}.toString;
-src_TickManager.instance = new src_TickManager();
 src_Game.main();
 })(typeof console != "undefined" ? console : {log:function(){}}, typeof window != "undefined" ? window : typeof global != "undefined" ? global : typeof self != "undefined" ? self : this);
