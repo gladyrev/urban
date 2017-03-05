@@ -290,11 +290,11 @@ src_IGameObject.__name__ = ["src","IGameObject"];
 src_IGameObject.prototype = {
 	__class__: src_IGameObject
 };
-var src_Animation = function(speed) {
-	if(speed == null) speed = 11.0;
+var src_Animation = function(velocity) {
+	if(velocity == null) velocity = 0.01;
 	PIXI.Sprite.call(this);
 	this.cacheAsBitmap = false;
-	this.play_speed = speed;
+	this.play_velocity = velocity;
 	this.frames_array = [];
 	this.reset();
 };
@@ -308,7 +308,7 @@ src_Animation.prototype = $extend(PIXI.Sprite.prototype,{
 		this.delta_frame = this.current_frame_index = 0;
 	}
 	,update: function(dt) {
-		this.delta_frame += this.play_speed * dt;
+		this.delta_frame += this.play_velocity * dt;
 		if(this.delta_frame >= 1.0) {
 			this.delta_frame -= 1.0;
 			this.current_frame_index += 1;
@@ -358,7 +358,7 @@ src_AnimationList.prototype = $extend(PIXI.Container.prototype,{
 });
 var src_ScrollingBackground = function() {
 	this.game = null;
-	this.scroll_speed = 12.0;
+	this.scroll_velocity = 0.01;
 	this.scroll_direction = 0;
 	PIXI.Container.call(this);
 	this.sprite_list = [];
@@ -383,16 +383,15 @@ src_ScrollingBackground.prototype = $extend(PIXI.Container.prototype,{
 		dispatcher.addListener("update_event",this);
 	}
 	,update: function(dt) {
-		this.handleUserInput(this.game);
+		this.handleUserInput(this.game.locator.getService(src_input_IUserInput));
 		var sprite_number = this.sprite_list.length;
 		var _g = 0;
 		while(_g < sprite_number) {
 			var i = _g++;
-			this.sprite_list[i].tilePosition.x += this.scroll_direction * (this.scroll_speed / (sprite_number - i)) * dt;
+			this.sprite_list[i].tilePosition.x += this.scroll_direction * (this.scroll_velocity / (sprite_number - i)) * dt;
 		}
 	}
-	,handleUserInput: function(game) {
-		var user_input = game.locator.getService(src_input_IUserInput);
+	,handleUserInput: function(user_input) {
 		var move_left = user_input.isDown(user_input.MOVE_LEFT);
 		var move_right = user_input.isDown(user_input.MOVE_RIGHT);
 		var state_was_changed = move_left || move_right;
@@ -429,14 +428,14 @@ src_Label.prototype = $extend(PIXI.Sprite.prototype,{
 	}
 	,__class__: src_Label
 });
-var src_FPSMeter = function() {
+var src_FpsMeter = function() {
 	this.milliseconds = 0.0;
 	PIXI.Sprite.call(this);
 };
-src_FPSMeter.__name__ = ["src","FPSMeter"];
-src_FPSMeter.__interfaces__ = [src_events_IUpdateEventListener,src_IGameObject];
-src_FPSMeter.__super__ = PIXI.Sprite;
-src_FPSMeter.prototype = $extend(PIXI.Sprite.prototype,{
+src_FpsMeter.__name__ = ["src","FpsMeter"];
+src_FpsMeter.__interfaces__ = [src_events_IUpdateEventListener,src_IGameObject];
+src_FpsMeter.__super__ = PIXI.Sprite;
+src_FpsMeter.prototype = $extend(PIXI.Sprite.prototype,{
 	init: function(game) {
 		this.label = new src_Label(3,3,"",{ tint : 16711680});
 		this.addChild(this.label);
@@ -444,12 +443,12 @@ src_FPSMeter.prototype = $extend(PIXI.Sprite.prototype,{
 	}
 	,update: function(dt) {
 		this.milliseconds += dt;
-		if(this.milliseconds > 0.5) {
-			this.label.update("FPS: " + (1.0 / dt | 0));
+		if(this.milliseconds > 500.0) {
+			this.label.update("FPS: " + (1000.0 / dt | 0));
 			this.milliseconds = 0.0;
 		}
 	}
-	,__class__: src_FPSMeter
+	,__class__: src_FpsMeter
 });
 var src_GameScreenMask = function() {
 	PIXI.Graphics.call(this);
@@ -471,7 +470,7 @@ src_events_IDepthSortingEventListener.prototype = {
 	__class__: src_events_IDepthSortingEventListener
 };
 var src_PoliceCar = function() {
-	this.move_speed = 40;
+	this.move_velocity = 0.06;
 	PIXI.Sprite.call(this);
 	this.animation = new src_Animation();
 };
@@ -491,7 +490,7 @@ src_PoliceCar.prototype = $extend(PIXI.Sprite.prototype,{
 	}
 	,update: function(dt) {
 		this.animation.update(dt);
-		this.x -= this.move_speed * dt;
+		this.x -= this.move_velocity * dt;
 		if(this.x < -300) this.x = 255;
 	}
 	,zAxisSorting: function(a,b) {
@@ -502,25 +501,24 @@ src_PoliceCar.prototype = $extend(PIXI.Sprite.prototype,{
 	}
 	,__class__: src_PoliceCar
 });
-var src_events_IFlowerPotCollisionEventListener = function() { };
-src_events_IFlowerPotCollisionEventListener.__name__ = ["src","events","IFlowerPotCollisionEventListener"];
-src_events_IFlowerPotCollisionEventListener.prototype = {
-	__class__: src_events_IFlowerPotCollisionEventListener
+var src_events_IAABBCollisionEventListener = function() { };
+src_events_IAABBCollisionEventListener.__name__ = ["src","events","IAABBCollisionEventListener"];
+src_events_IAABBCollisionEventListener.prototype = {
+	__class__: src_events_IAABBCollisionEventListener
 };
 var src_Urban = function() {
 	this.game = null;
-	this.move_speed = 0.0;
+	this.move_velocity = 0.0;
 	this.move_direction = 0;
-	this.character_animation = null;
+	this.character_animation = new src_AnimationList();
 	this.dispatcher = null;
 	PIXI.Graphics.call(this);
-	this.character_animation = new src_AnimationList();
 	this.addChild(this.character_animation);
 	this.x = 100;
 	this.y = 96;
 };
 src_Urban.__name__ = ["src","Urban"];
-src_Urban.__interfaces__ = [src_events_IFlowerPotCollisionEventListener,src_events_IUpdateEventListener,src_IGameObject];
+src_Urban.__interfaces__ = [src_events_IAABBCollisionEventListener,src_events_IUpdateEventListener,src_IGameObject];
 src_Urban.__super__ = PIXI.Graphics;
 src_Urban.prototype = $extend(PIXI.Graphics.prototype,{
 	init: function(game) {
@@ -571,19 +569,17 @@ src_Urban.prototype = $extend(PIXI.Graphics.prototype,{
 		initializeAnimation(null,"uppercut",2);
 		this.dispatcher = game.locator.getService(src_events_IEventDispatcher);
 		this.dispatcher.addListener("update_event",this);
-		this.dispatcher.addListener("flower_pot_collision",this);
+		this.dispatcher.addListener("aabb_collision",this);
 	}
-	,flowerPotCollision: function(x,y,width,height) {
+	,collision: function(bounding_box) {
 		var physics = this.game.locator.getService(src_physics_IPhysicsEngine);
-		if(physics.collide(this.x,this.y,this.width,this.height,x,y,width,height)) {
-			var collide_success_event = new src_events_FlowerPotCollisionSuccessEvent(this);
-			this.dispatcher.dispatch("flower_pot_collision_success",collide_success_event);
-		}
+		var self_bounding_box = new src_geom_Rect(this.x,this.y,this.width,this.height);
+		if(physics.aabbCollision(bounding_box,self_bounding_box)) this.dispatcher.dispatch("collision_success",new src_events_CollisionSuccessEvent(this));
 	}
 	,update: function(dt) {
 		this.handleUserInput(this.game);
 		this.character_animation.update(dt);
-		this.x += this.move_direction * this.move_speed * dt;
+		this.x += this.move_direction * this.move_velocity * dt;
 	}
 	,handleUserInput: function(game) {
 		var audio = game.locator.getService(src_sound_ISoundEngine);
@@ -616,78 +612,81 @@ src_Urban.prototype = $extend(PIXI.Graphics.prototype,{
 	}
 	,__class__: src_Urban
 });
-var src_events_IFlowerPotCollisionSuccessEventListener = function() { };
-src_events_IFlowerPotCollisionSuccessEventListener.__name__ = ["src","events","IFlowerPotCollisionSuccessEventListener"];
-src_events_IFlowerPotCollisionSuccessEventListener.prototype = {
-	__class__: src_events_IFlowerPotCollisionSuccessEventListener
+var src_events_ICollisionSuccessEventListener = function() { };
+src_events_ICollisionSuccessEventListener.__name__ = ["src","events","ICollisionSuccessEventListener"];
+src_events_ICollisionSuccessEventListener.prototype = {
+	__class__: src_events_ICollisionSuccessEventListener
 };
 var src_FlowerPot = function(x_position,y_position) {
-	this.fall_speed = 50.0;
-	this.texture_list = null;
-	this.internal_timer = 0.0;
+	this.falling_velocity = 0.05;
+	this.texture_list = [];
+	this.pause_after_collision = new src_utils_SimpleTimer();
 	this.internal_state = 0;
 	this.dispatcher = null;
 	PIXI.Sprite.call(this);
 	this.x = x_position;
 	this.y = 20;
-	this.texture_list = [];
 };
 src_FlowerPot.__name__ = ["src","FlowerPot"];
-src_FlowerPot.__interfaces__ = [src_events_IFlowerPotCollisionSuccessEventListener,src_events_IUpdateEventListener,src_IGameObject];
+src_FlowerPot.__interfaces__ = [src_events_ICollisionSuccessEventListener,src_events_IUpdateEventListener,src_IGameObject];
 src_FlowerPot.__super__ = PIXI.Sprite;
 src_FlowerPot.prototype = $extend(PIXI.Sprite.prototype,{
 	init: function(game) {
-		this.internal_state = 0;
+		var _g = this;
+		this.updateState(0);
 		var assets = game.locator.getService(src_resources_IResourceManager);
 		this.texture_list.push(assets.getTexture("flower_pot-1.png"));
 		this.texture_list.push(assets.getTexture("flower_pot-2.png"));
 		this.dispatcher = game.locator.getService(src_events_IEventDispatcher);
 		this.dispatcher.addListener("update_event",this);
-		this.dispatcher.addListener("flower_pot_collision_success",this);
+		this.dispatcher.addListener("collision_success",this);
+		var callback = function() {
+			var event = new src_events_FlowerPotDestroyEvent();
+			_g.dispatcher.dispatch("flower_pot_destroy",event);
+		};
+		this.pause_after_collision.alarm(1000,callback);
 	}
 	,destruct: function(game) {
 		this.dispatcher.removeListener("update_event",this);
-		this.dispatcher.removeListener("flower_pot_collision_success",this);
+		this.dispatcher.removeListener("collision_success",this);
 		this.dispatcher = null;
+	}
+	,updateState: function(state) {
+		this.internal_state = state;
+	}
+	,updateTexture: function(index) {
+		this.texture = this.texture_list[index];
 	}
 	,update: function(dt) {
 		var _g = this.internal_state;
 		switch(_g) {
 		case 0:
-			this.y += this.fall_speed * dt;
+			this.updateTexture(0);
+			this.y += this.falling_velocity * dt;
 			if(this.y < 128) {
-				var collision_event = new src_events_FlowerPotCollisionEvent(this.x,this.y,this.width,this.height);
-				this.dispatcher.dispatch("flower_pot_collision",collision_event);
+				var bounding_box = new src_geom_Rect(this.x,this.y,this.width,this.height);
+				this.dispatcher.dispatch("aabb_collision",new src_events_AABBCollisionEvent(bounding_box));
 			} else {
 				this.y = 128;
-				this.internal_state = 1;
+				this.updateState(1);
 			}
-			this.texture = this.texture_list[this.internal_state];
 			break;
 		case 1:
-			this.texture = this.texture_list[this.internal_state];
-			this.internal_state = 2;
-			break;
-		case 2:
-			this.internal_timer += dt;
-			if(this.internal_timer > 1.0) {
-				this.internal_timer = 0.0;
-				this.dispatcher.dispatch("flower_pot_destroy",new src_events_FlowerPotDestroyEvent());
-			}
+			this.updateTexture(1);
+			this.pause_after_collision.update(dt);
 			break;
 		}
 	}
 	,collisionSuccess: function(entity) {
-		this.internal_state = 1;
+		this.updateState(1);
 	}
 	,__class__: src_FlowerPot
 });
 var src_Citizen = function() {
 	this.internal_timer = 0.0;
-	this.character_animation = null;
+	this.character_animation = new src_AnimationList();
 	this.dispatcher = null;
 	PIXI.Container.call(this);
-	this.character_animation = new src_AnimationList();
 	this.addChild(this.character_animation);
 };
 src_Citizen.__name__ = ["src","Citizen"];
@@ -696,11 +695,11 @@ src_Citizen.__super__ = PIXI.Container;
 src_Citizen.prototype = $extend(PIXI.Container.prototype,{
 	init: function(game) {
 		this.character_animation.push("idle",new src_Animation());
-		this.character_animation.push("shot",new src_Animation());
+		this.character_animation.push("drop",new src_Animation());
 		var assets = game.locator.getService(src_resources_IResourceManager);
 		var animation = this.character_animation.getAnimation("idle");
 		animation.pushFrame(assets.getTexture("man_idle-01.png"));
-		var animation1 = this.character_animation.getAnimation("shot");
+		var animation1 = this.character_animation.getAnimation("drop");
 		animation1.pushFrame(assets.getTexture("man_drop_flower-01.png"));
 		animation1.pushFrame(assets.getTexture("man_drop_flower-02.png"));
 		animation1.pushFrame(assets.getTexture("man_drop_flower-01.png"));
@@ -709,9 +708,9 @@ src_Citizen.prototype = $extend(PIXI.Container.prototype,{
 	}
 	,update: function(dt) {
 		this.internal_timer += dt;
-		var is_drop_time = this.internal_timer > 10.0;
+		var is_drop_time = this.internal_timer > 10000.0;
 		if(is_drop_time) {
-			this.internal_timer -= 10.0;
+			this.internal_timer -= 10000.0;
 			this.dispatcher.dispatch("flower_pot_create",new src_events_FlowerPotCreateEvent(this.x,this.y));
 		}
 	}
@@ -788,7 +787,7 @@ src_UIScreen.prototype = $extend(PIXI.Container.prototype,{
 		this.addChild(virtual_joystick);
 		var label = new src_Label(17,14,"TOUCH INSIDE\nTHE BOX TO ACCESS\nTHE JOYSTICK");
 		this.addChild(label);
-		this.addChild(new src_FPSMeter());
+		this.addChild(new src_FpsMeter());
 		var _g = 0;
 		var _g1 = this.children;
 		while(_g < _g1.length) {
@@ -840,7 +839,6 @@ src_GameScene.prototype = $extend(PIXI.Container.prototype,{
 		var update_event = new src_events_UpdateEvent(dt);
 		this.dispatcher.dispatch("update_event",update_event);
 		this.dispatcher.dispatch("depth_sorting_event",new src_events_DepthSortingEvent());
-		this.game.locator.getService(src_graphics_IGraphicsEngine).render(this);
 	}
 	,__class__: src_GameScene
 });
@@ -890,7 +888,7 @@ var src_Game = function(width,height) {
 	this.locator = new src_services_ServiceLocator();
 };
 src_Game.__name__ = ["src","Game"];
-src_Game.__interfaces__ = [src_events_ITickEventListener,src_IGame];
+src_Game.__interfaces__ = [src_events_IUpdateEventListener,src_events_ITickEventListener,src_IGame];
 src_Game.main = function() {
 	var custom_loader = null;
 	var preloader = new src_resources_ResourceLoader();
@@ -956,9 +954,13 @@ src_Game.prototype = {
 	,resume: function() {
 		var tick_manager = this.locator.getService(src_ticker_ITickManager);
 		tick_manager.addListener("tick_event",this);
+		tick_manager.addListener("update_event",this);
 	}
-	,tick: function(dt) {
-		this.scene_manager.update(dt);
+	,tick: function(tick) {
+		this.scene_manager.update(tick);
+	}
+	,update: function(dt) {
+		this.locator.getService(src_graphics_IGraphicsEngine).render(this.scene_manager.getScene());
 	}
 	,__class__: src_Game
 };
@@ -971,6 +973,28 @@ var src_events_IEvent = function() { };
 src_events_IEvent.__name__ = ["src","events","IEvent"];
 src_events_IEvent.prototype = {
 	__class__: src_events_IEvent
+};
+var src_events_AABBCollisionEvent = function(bounding_box) {
+	this.bounding_box = bounding_box;
+};
+src_events_AABBCollisionEvent.__name__ = ["src","events","AABBCollisionEvent"];
+src_events_AABBCollisionEvent.__interfaces__ = [src_events_IEvent];
+src_events_AABBCollisionEvent.prototype = {
+	notify: function(listener) {
+		listener.collision(this.bounding_box);
+	}
+	,__class__: src_events_AABBCollisionEvent
+};
+var src_events_CollisionSuccessEvent = function(entity) {
+	this.entity = entity;
+};
+src_events_CollisionSuccessEvent.__name__ = ["src","events","CollisionSuccessEvent"];
+src_events_CollisionSuccessEvent.__interfaces__ = [src_events_IEvent];
+src_events_CollisionSuccessEvent.prototype = {
+	notify: function(listener) {
+		listener.collisionSuccess(this.entity);
+	}
+	,__class__: src_events_CollisionSuccessEvent
 };
 var src_events_DepthSortingEvent = function() {
 };
@@ -1026,31 +1050,6 @@ src_events_EventDispatcher.prototype = {
 		}
 	}
 	,__class__: src_events_EventDispatcher
-};
-var src_events_FlowerPotCollisionEvent = function(x,y,w,h) {
-	this.x = x;
-	this.y = y;
-	this.w = x;
-	this.h = y;
-};
-src_events_FlowerPotCollisionEvent.__name__ = ["src","events","FlowerPotCollisionEvent"];
-src_events_FlowerPotCollisionEvent.__interfaces__ = [src_events_IEvent];
-src_events_FlowerPotCollisionEvent.prototype = {
-	notify: function(listener) {
-		listener.flowerPotCollision(this.x,this.y,this.w,this.h);
-	}
-	,__class__: src_events_FlowerPotCollisionEvent
-};
-var src_events_FlowerPotCollisionSuccessEvent = function(entity) {
-	this.entity = entity;
-};
-src_events_FlowerPotCollisionSuccessEvent.__name__ = ["src","events","FlowerPotCollisionSuccessEvent"];
-src_events_FlowerPotCollisionSuccessEvent.__interfaces__ = [src_events_IEvent];
-src_events_FlowerPotCollisionSuccessEvent.prototype = {
-	notify: function(listener) {
-		listener.collisionSuccess(this.entity);
-	}
-	,__class__: src_events_FlowerPotCollisionSuccessEvent
 };
 var src_events_FlowerPotCreateEvent = function(x,y) {
 	this.x = x;
@@ -1112,6 +1111,24 @@ src_events_UpdateEvent.prototype = {
 		listener.update(this.dt);
 	}
 	,__class__: src_events_UpdateEvent
+};
+var src_geom_Rect = function(x,y,w,h) {
+	if(h == null) h = 0.0;
+	if(w == null) w = 0.0;
+	if(y == null) y = 0.0;
+	if(x == null) x = 0.0;
+	this.h = 0.0;
+	this.w = 0.0;
+	this.y = 0.0;
+	this.x = 0.0;
+	this.x = x;
+	this.y = x;
+	this.w = x;
+	this.h = x;
+};
+src_geom_Rect.__name__ = ["src","geom","Rect"];
+src_geom_Rect.prototype = {
+	__class__: src_geom_Rect
 };
 var src_graphics_IGraphicsEngine = function() { };
 src_graphics_IGraphicsEngine.__name__ = ["src","graphics","IGraphicsEngine"];
@@ -1380,6 +1397,16 @@ src_math_SimpleMath.isPositive = function(value) {
 src_math_SimpleMath.isNegative = function(value) {
 	if(value < 0.0) return true; else return false;
 };
+src_math_SimpleMath.mean = function(m) {
+	var sum = 0.0;
+	var _g1 = 0;
+	var _g = m.length;
+	while(_g1 < _g) {
+		var i = _g1++;
+		sum += m[i];
+	}
+	return sum / m.length;
+};
 var src_physics_IPhysicsEngine = function() { };
 src_physics_IPhysicsEngine.__name__ = ["src","physics","IPhysicsEngine"];
 src_physics_IPhysicsEngine.__interfaces__ = [src_services_IService];
@@ -1391,12 +1418,20 @@ var src_physics_PhysicsEngine = function() {
 src_physics_PhysicsEngine.__name__ = ["src","physics","PhysicsEngine"];
 src_physics_PhysicsEngine.__interfaces__ = [src_physics_IPhysicsEngine];
 src_physics_PhysicsEngine.prototype = {
-	collide: function(x1,y1,w1,h1,x2,y2,w2,h2) {
+	init: function() {
+	}
+	,aabbCollision: function(bounding_box1,bounding_box2) {
+		var x1 = bounding_box1.x;
+		var y1 = bounding_box1.y;
+		var w1 = bounding_box1.w;
+		var h1 = bounding_box1.h;
+		var x2 = bounding_box2.x;
+		var y2 = bounding_box2.y;
+		var w2 = bounding_box2.w;
+		var h2 = bounding_box2.h;
 		if(x1 > x2 + w2 || x1 + w1 < x2) return false;
 		if(y1 > y2 + h2 || y1 + h1 < y2) return false;
 		return true;
-	}
-	,init: function() {
 	}
 	,__class__: src_physics_PhysicsEngine
 };
@@ -1504,31 +1539,61 @@ var src_ticker_ITickManager = function() { };
 src_ticker_ITickManager.__name__ = ["src","ticker","ITickManager"];
 src_ticker_ITickManager.__interfaces__ = [src_events_IEventDispatcher];
 var src_ticker_TickManager = function() {
+	this.raf_buffer = [];
+	this.raf_index = 0;
 	this.delta_time = 0.0;
 	this.prev_frame_time = 0.0;
 	this.lag = 0.0;
+	this.ms_per_update = 0.0;
 	src_events_EventDispatcher.call(this);
-	this.loop(0.0);
+	var _g = 0;
+	while(_g < 10) {
+		var i = _g++;
+		this.raf_buffer.push(0.0);
+	}
+	this.ms_per_update = 16.666666666666668;
+	this.loop(50.);
 };
 src_ticker_TickManager.__name__ = ["src","ticker","TickManager"];
 src_ticker_TickManager.__interfaces__ = [src_ticker_ITickManager];
 src_ticker_TickManager.__super__ = src_events_EventDispatcher;
 src_ticker_TickManager.prototype = $extend(src_events_EventDispatcher.prototype,{
 	loop: function(timestamp) {
-		this.delta_time = (timestamp - this.prev_frame_time) / 1000.0;
-		if(this.delta_time > 1.0) this.delta_time = 1.0; else this.delta_time = this.delta_time;
-		this.lag += this.delta_time;
-		var tick_event = new src_events_TickEvent(0.016);
-		while(this.lag >= 0.016) {
-			this.dispatch("tick_event",tick_event);
-			this.lag -= 0.016;
-		}
-		this.dispatch("update_event",new src_events_UpdateEvent(this.delta_time));
-		this.prev_frame_time = timestamp;
 		window.requestAnimationFrame($bind(this,this.loop));
+		this.delta_time = timestamp - this.prev_frame_time;
+		this.prev_frame_time = timestamp;
+		if(this.delta_time > 100.0) this.delta_time = 100.0;
+		this.raf_buffer[this.raf_index] = this.delta_time;
+		var mean = src_math_SimpleMath.mean(this.raf_buffer);
+		this.lag += mean;
+		var tick_event = new src_events_TickEvent(this.ms_per_update);
+		while(this.lag >= this.ms_per_update) {
+			this.lag -= this.ms_per_update;
+			this.dispatch("tick_event",tick_event);
+		}
+		var update_event = new src_events_UpdateEvent(mean);
+		this.dispatch("update_event",update_event);
+		this.raf_index = (this.raf_index + 1) % this.raf_buffer.length;
 	}
 	,__class__: src_ticker_TickManager
 });
+var src_utils_SimpleTimer = function() {
+	this.callback = null;
+	this.internal_timer = 0.0;
+	this.limit = 0.0;
+};
+src_utils_SimpleTimer.__name__ = ["src","utils","SimpleTimer"];
+src_utils_SimpleTimer.prototype = {
+	alarm: function(limit,callback) {
+		this.limit = limit;
+		this.callback = callback;
+	}
+	,update: function(dt) {
+		this.internal_timer += dt;
+		if(this.internal_timer > this.limit) this.callback();
+	}
+	,__class__: src_utils_SimpleTimer
+};
 var src_utils_Tools = function() { };
 src_utils_Tools.__name__ = ["src","utils","Tools"];
 src_utils_Tools.getTouchIdentifier = function(e) {
