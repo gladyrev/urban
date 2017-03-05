@@ -942,8 +942,8 @@ src_Game.prototype = {
 		window.removeEventListener("onbeforeunload",$bind(this,this.destroy),false);
 	}
 	,resize: function() {
-		var actual_width = window.innerWidth;
-		var actual_height = window.innerHeight;
+		var actual_width = Math.min(window.innerWidth,window.outerWidth);
+		var actual_height = Math.min(window.innerHeight,window.outerHeight);
 		var ratio_scale = Math.min(actual_width / this.window_width,actual_height / this.window_height);
 		ratio_scale = Math.floor(ratio_scale * 0.8);
 		if(ratio_scale == 0.0) ratio_scale = 1.0;
